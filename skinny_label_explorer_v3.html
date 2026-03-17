@@ -171,7 +171,7 @@
       <div class="stat-grid">
         <div class="stat"><div class="value" id="s-ndas">-</div><div class="label">Treatment NDAs</div></div>
         <div class="stat"><div class="value" id="s-years">-</div><div class="label">Years</div></div>
-        <div class="stat"><div class="value" id="s-trap">-</div><div class="label">Scope Gap &gt; 0</div></div>
+        <div class="stat"><div class="value" id="s-trap">-</div><div class="label">Mean Claim-Ind</div></div>
         <div class="stat"><div class="value" id="s-control">-</div><div class="label">Control NDAs</div></div>
       </div>
     </div>
@@ -198,8 +198,8 @@
       <h3>Selected Drug Overview</h3>
       <div class="detail-grid">
         <div class="detail-stat"><div class="label">Drug</div><div class="value" id="d-name">Select a drug</div><div class="sub" id="d-ingredient">-</div></div>
-        <div class="detail-stat"><div class="label">Scope Gap (Claim-UC)</div><div class="value" id="d-gap">-</div><div class="sub" id="d-gap-sub">Latest observed year</div></div>
         <div class="detail-stat"><div class="label">Claim-Indication</div><div class="value" id="d-ci">-</div><div class="sub" id="d-ci-sub">-</div></div>
+        <div class="detail-stat"><div class="label">Scope Gap (Secondary)</div><div class="value" id="d-gap">-</div><div class="sub" id="d-gap-sub">Claim-UC minus Ind-UC</div></div>
         <div class="detail-stat"><div class="label">Use Codes</div><div class="value" id="d-ucs">-</div><div class="sub" id="d-claims">-</div></div>
         <div class="detail-stat"><div class="label">Orphan Claims</div><div class="value" id="d-orphan">-</div><div class="sub" id="d-orphan-sub">Claims not matching any indication</div></div>
       </div>
@@ -207,7 +207,7 @@
     <div class="panels">
       <div class="card">
         <h3>Aggregate Temporal Trends
-          <span class="help-icon">?<span class="help-tip">Shows how patent claim similarity to use codes (red), label indication similarity to use codes (green), and the scope gap (purple, dashed) have changed across all drugs from 1988-2024. Vertical dashed lines mark GSK v. Teva (2021) and Amarin v. Hikma (2024). The gap between red and green lines is the average scope gap — when red is above green, patent claims semantically exceed what the label covers.</span></span>
+          <span class="help-icon">?<span class="help-tip">These temporal trends remain use-code anchored because the current export provides claim-indication primarily at the NDA level rather than as a year-stamped panel. Claim-indication is therefore surfaced throughout the summaries, directory, drug list, and claim-level tooltips while this chart continues to show Claim-UC, Indication-UC, and their derived gap over time.</span></span>
         </h3>
         <canvas id="trend-chart"></canvas>
         <div class="chart-note" id="trend-note">Hover for year-level detail. Click a year to sync the network timeline.</div>
@@ -219,7 +219,7 @@
       </div>
       <div class="card">
         <h3>Drug Similarity Trajectory: <span id="drug-title">Select a drug</span>
-          <span class="help-icon">?<span class="help-tip">Shows how this drug's similarities change over its Orange Book lifetime. <strong>Red (Claim-UC):</strong> how closely patent claims match use code descriptions. <strong>Green (Ind-UC):</strong> how closely the drug's label matches use codes. <strong>Purple dashed (Scope Gap):</strong> the difference. When purple is positive, patent claims semantically reach beyond what the label covers — the core of the skinny label problem.</span></span>
+          <span class="help-icon">?<span class="help-tip">This chart still traces the drug's year-by-year use-code relationships. Claim-indication is now the headline metric in the surrounding summaries and claim-level tooltips, because it is stored at the claim/NDA level in the current website export rather than as a full year-stamped series.</span></span>
         </h3>
         <canvas id="drug-chart"></canvas>
         <div class="chart-note" id="drug-note">Hover for year detail. Click a point to move the timeline and network there.</div>
@@ -233,9 +233,10 @@
           <h4>Aggregate Year Snapshot</h4>
           <div class="snapshot-meta" id="agg-snapshot-meta">Select a year from the charts or timeline.</div>
           <div class="snapshot-row">
+            <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="agg-ci">-</span></div>
+            <div class="snapshot-pill"><span class="label">Orphan Rate</span><span class="value" id="agg-orphan">-</span></div>
             <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="agg-cu">-</span></div>
             <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="agg-iu">-</span></div>
-            <div class="snapshot-pill"><span class="label">Scope Gap</span><span class="value" id="agg-gap">-</span></div>
             <div class="snapshot-pill"><span class="label">NDAs</span><span class="value" id="agg-ndas">-</span></div>
           </div>
           <div class="snapshot-foot" id="agg-foot">Temporal trends are interactive: click a year to sync the explorer below.</div>
@@ -244,11 +245,11 @@
           <h4>Selected Drug-Year Snapshot</h4>
           <div class="snapshot-meta" id="drug-snapshot-meta">Select a drug to inspect its active year slice.</div>
           <div class="snapshot-row">
+            <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="drug-ci">-</span></div>
+            <div class="snapshot-pill"><span class="label">Orphan Claims</span><span class="value" id="drug-orphan">-</span></div>
             <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="drug-cu">-</span></div>
             <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="drug-iu">-</span></div>
             <div class="snapshot-pill"><span class="label">Scope Gap</span><span class="value" id="drug-gap">-</span></div>
-            <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="drug-ci">-</span></div>
-            <div class="snapshot-pill"><span class="label">Orphan Claims</span><span class="value" id="drug-orphan">-</span></div>
             <div class="snapshot-pill"><span class="label">Use Codes</span><span class="value" id="drug-active-ucs">-</span></div>
             <div class="snapshot-pill"><span class="label">Patents</span><span class="value" id="drug-active-pats">-</span></div>
           </div>
@@ -258,8 +259,8 @@
     </div>
 
     <div class="card" style="position:relative">
-      <h3>Claim-Use Code Network: <span id="net-title">-</span>
-        <span class="help-icon">?<span class="help-tip"><strong>Simple:</strong> Star graph — drug at center, use codes as satellites.<br><br><strong>Network:</strong> Bipartite graph — individual patent claims (left) connected to use codes (right). Claims colored by patent. Red edges = claim exceeds label for that UC.<br><br><strong>Heatmap:</strong> Matrix of per-edge scope gaps. Red = claim exceeds label (positive gap), green = label covers claim (negative gap). The primary analytical view.<br><br><strong>Sankey:</strong> Flow diagram showing Patent → Claim → Use Code connections. Width = similarity strength.</span></span>
+      <h3>Claim / Indication / Use Code Explorer: <span id="net-title">-</span>
+        <span class="help-icon">?<span class="help-tip"><strong>Simple:</strong> overview of the selected drug-year plus claim-indication headline metrics.<br><br><strong>Network:</strong> claim-to-use-code graph, with claim-indication strength surfaced in claim tooltips and filters.<br><br><strong>Heatmap:</strong> claim-use-code matrix with claim-indication context on hover.<br><br><strong>Sankey:</strong> patent-to-claim-to-use-code flow, with claim-indication context for each claim.</span></span>
       </h3>
       <div class="network-controls">
         <button class="play-btn" id="play-btn" title="Animate through years">&#9654; Play</button>
@@ -289,6 +290,14 @@
         <label class="filter-field">Claims
           <select id="claim-kind-filter">
             <option value="all">All (independent only)</option>
+          </select>
+        </label>
+        <label class="filter-field">Claim-Indication
+          <select id="ci-status-filter">
+            <option value="all">All claims</option>
+            <option value="matched">Matched claims only</option>
+            <option value="high">High CI only</option>
+            <option value="orphan">Orphan claims only</option>
           </select>
         </label>
         <div class="filter-field">
@@ -333,8 +342,8 @@
       <p class="info-text">
         This tool visualizes the semantic relationship between <strong>individual patent claims</strong>,
         Orange Book use codes, and approved label indications for FDA-approved drugs.
-        The <strong>scope gap</strong> measures how far patent claims semantically
-        exceed what the drug's label actually covers.
+        <strong>Claim-indication similarity</strong> is now the headline measure of direct patent-label alignment,
+        while scope gap remains a secondary use-code-derived summary.
       </p>
       <div class="methods-toggle" id="methods-toggle" onclick="document.getElementById('methods-body').classList.toggle('open'); this.textContent = this.textContent.includes('+') ? '- Hide methods' : '+ Show methods'">+ Show methods</div>
       <div class="methods-body" id="methods-body">
@@ -400,10 +409,10 @@
             <option value="all">All ingredient families</option>
           </select>
           <select id="dir-gap-sign">
-            <option value="all">All scope gap directions</option>
-            <option value="positive">Positive scope gap only</option>
-            <option value="negative">Negative scope gap only</option>
-            <option value="missing">Missing scope gap only</option>
+            <option value="all">All claim-indication bands</option>
+            <option value="positive">High claim-indication only</option>
+            <option value="negative">Low claim-indication only</option>
+            <option value="missing">Missing claim-indication only</option>
           </select>
           <select id="dir-usecodes">
             <option value="all">All use-code sizes</option>
@@ -414,8 +423,8 @@
             <option value="50">50+ use codes</option>
           </select>
           <select id="dir-sort">
-            <option value="gap_desc">Sort: scope gap high to low</option>
-            <option value="gap_asc">Sort: scope gap low to high</option>
+            <option value="ci_desc">Sort: claim-indication high to low</option>
+            <option value="ci_asc">Sort: claim-indication low to high</option>
             <option value="edge_desc">Sort: network edges high to low</option>
             <option value="uc_desc">Sort: use codes high to low</option>
             <option value="name_asc">Sort: name A-Z</option>
@@ -448,8 +457,9 @@
               <tr>
                 <th>Drug</th>
                 <th>Ingredient / keyword</th>
-                <th>Scope gap</th>
+                <th>Claim-Ind</th>
                 <th>Use codes</th>
+                <th>Orphan %</th>
                 <th>Claim-UC</th>
                 <th>Ind-UC</th>
                 <th>Year</th>
@@ -470,10 +480,10 @@
         <div class="arch-grid">
           <div class="arch-card"><h4>Three Text Registers</h4><p>Patent claims, Orange Book use-code descriptions, and approved label indications remain separate semantic objects throughout the interface.</p></div>
           <div class="arch-card"><h4>Embedding Layer</h4><p><strong>S-PubMedBert-MS-MARCO</strong> embeds all text types in one 768-dimensional space so claim, use-code, and indication comparisons stay directly comparable.</p></div>
-          <div class="arch-card"><h4>Similarity Engine</h4><p>The site exposes Claim↔UC, Indication↔UC, and derived scope gap. It is meant for exploration and interpretation, not only static figure recreation.</p></div>
+          <div class="arch-card"><h4>Similarity Engine</h4><p>The site now foregrounds Claim↔Indication as the direct patent-label measure, while still exposing Claim↔UC, Indication↔UC, and derived scope gap for context.</p></div>
           <div class="arch-card"><h4>Website Architecture</h4><p><code>site_data.json</code> powers fast overview panels. Claim-level networks are lazy-loaded per NDA from <code>networks/</code> and cached in-session.</p></div>
           <div class="arch-card"><h4>Performance Controls</h4><ul><li>Per-drug lazy loading</li><li>Hard SVG caps for dense views</li><li>Reduced Sankey on heavy drugs</li><li>Persistent filters with timeline playback</li></ul></div>
-          <div class="arch-card"><h4>Validation Status</h4><p>The site surfaces the exploratory nature of scope gap directly. Manual mapping validation is still pending, so the interface emphasizes comparison and context rather than hard classification.</p></div>
+          <div class="arch-card"><h4>Validation Status</h4><p>Claim-indication is the headline interface metric, but all semantic measures remain exploratory. Manual mapping validation is still pending, so the site emphasizes comparison, inspection, and separability rather than hard classification.</p></div>
         </div>
       </div>
     </div>
@@ -493,7 +503,7 @@
           </div>
           <div class="card">
             <h3>Interpretive Guidance</h3>
-            <p class="info-text">A positive scope gap highlights where claim language semantically tracks a use code more strongly than the approved label does. That is a signal for closer review, not proof of legal overreach by itself.</p>
+            <p class="info-text">A high claim-indication score means patent claims semantically track approved label indications closely. Scope gap remains useful, but it is treated here as a secondary, use-code-mediated signal rather than the main headline.</p>
           </div>
         </div>
         <div class="stack">
@@ -523,6 +533,7 @@
 // Data & State
 // ======================================================================
 let DATA = null;
+let CI_INDEX = {};
 let selectedDrug = null;
 let currentFiltered = null;
 let displayedCount = 0;
@@ -534,6 +545,7 @@ let currentSim = null;
 let directoryFamilies = [];
 const advancedFilters = {
   claimKind: 'all',
+  ciStatus: 'all',
   useCodes: new Set(),
   patents: new Set(),
   ucQuery: '',
@@ -561,9 +573,11 @@ const PAT_COLORS = [
 // ======================================================================
 Promise.all([
   fetch('site_data.json').then(r => r.json()),
+  fetch('ci_index.json').then(r => r.json()).catch(() => ({})),
   fetch('networks/index.json').then(r => r.json()).catch(() => null),
-]).then(([data, idx]) => {
+]).then(([data, ciIndex, idx]) => {
   DATA = data;
+  CI_INDEX = ciIndex || {};
   networkIndex = idx;
   console.log('Base data loaded.', idx ? Object.keys(idx).length + ' NDAs in network index' : 'No network index');
   init();
@@ -648,13 +662,49 @@ function getNetworkMeta(nda) {
   return { meta, edges, hasNetwork, sizeLabel };
 }
 
+function getCIStats(nda, netOverride = null) {
+  const net = netOverride || networkCache[nda] || null;
+  if (net && (net.ci_mean != null || net.orphan_rate != null)) {
+    return {
+      ci_mean: net.ci_mean ?? null,
+      orphan_rate: net.orphan_rate ?? null,
+      ci_claims: Array.isArray(net.ci_claims) ? net.ci_claims.length : null,
+      indications: Array.isArray(net.indications) ? net.indications.length : null,
+      ci_edges: Array.isArray(net.ci_edges) ? net.ci_edges.length : null,
+    };
+  }
+  return CI_INDEX[nda] || {};
+}
+
+function buildClaimIndicationMaps(net) {
+  const ciByClaim = {};
+  const indicationById = {};
+  const ciEdgesByClaim = {};
+  (net.indications || []).forEach(ind => { indicationById[ind.id] = ind; });
+  (net.ci_claims || []).forEach(row => { ciByClaim[row.c] = row; });
+  (net.ci_edges || []).forEach(edge => {
+    (ciEdgesByClaim[edge.c] = ciEdgesByClaim[edge.c] || []).push(edge);
+  });
+  Object.values(ciEdgesByClaim).forEach(edges => edges.sort((a, b) => b.s - a.s));
+  return { ciByClaim, indicationById, ciEdgesByClaim };
+}
+
+function getClaimCIInfo(ciMaps, claimId) {
+  const ci = ciMaps.ciByClaim[claimId] || null;
+  const topEdge = (ciMaps.ciEdgesByClaim[claimId] || [])[0] || null;
+  const indication = topEdge ? ciMaps.indicationById[topEdge.i] || null : null;
+  return { ci, topEdge, indication };
+}
+
 function getFilterContext(nda, year, net) {
   const best = getClosestTimelineEntry(nda, year);
   if (!best) return null;
   const activeUCs = new Set((best.ucs || []).map(u => u.c));
   const claimToPat = {};
+  const ciByClaim = {};
   if (net) {
     net.patents.forEach(p => p.claims.forEach(c => { claimToPat[c.id] = p.pat; }));
+    (net.ci_claims || []).forEach(row => { ciByClaim[row.c] = row; });
   }
   const patents = [];
   if (net && net.pat_ucs) {
@@ -668,6 +718,7 @@ function getFilterContext(nda, year, net) {
     useCodes: [...activeUCs].sort(),
     patents: patents.sort(),
     claimToPat,
+    ciByClaim,
   };
 }
 
@@ -721,13 +772,17 @@ function refreshAdvancedFilterUI(nda, year, net) {
   advancedFilters.patents = new Set([...advancedFilters.patents].filter(v => ctx.patents.includes(v)));
 
   document.getElementById('claim-kind-filter').value = advancedFilters.claimKind;
+  document.getElementById('ci-status-filter').value = advancedFilters.ciStatus;
   renderFilterOptions('uc-filter-options', ctx.useCodes, advancedFilters.useCodes, advancedFilters.ucQuery);
   renderFilterOptions('patent-filter-options', ctx.patents, advancedFilters.patents, advancedFilters.patentQuery, v => `Patent ${v}`);
   updateFilterButtonLabel('uc-filter-btn', 'Use Codes', advancedFilters.useCodes.size, ctx.useCodes.length);
   updateFilterButtonLabel('patent-filter-btn', 'Patents', advancedFilters.patents.size, ctx.patents.length);
 
   const parts = [];
-  // All claims are independent only (no filter needed)
+  if (advancedFilters.ciStatus !== 'all') {
+    const labels = { matched: 'CI matched', high: 'High CI', orphan: 'Orphan claims' };
+    parts.push(labels[advancedFilters.ciStatus] || advancedFilters.ciStatus);
+  }
   if (advancedFilters.useCodes.size > 0) parts.push(`${advancedFilters.useCodes.size} UCs`);
   if (advancedFilters.patents.size > 0) parts.push(`${advancedFilters.patents.size} patents`);
   summary.textContent = parts.length ? parts.join(' | ') : 'No advanced filters';
@@ -739,6 +794,7 @@ function closeFilterPopovers() {
 
 function setupAdvancedFilters() {
   const claimKind = document.getElementById('claim-kind-filter');
+  const ciStatus = document.getElementById('ci-status-filter');
   const ucBtn = document.getElementById('uc-filter-btn');
   const patBtn = document.getElementById('patent-filter-btn');
   const ucPop = document.getElementById('uc-filter-popover');
@@ -748,6 +804,10 @@ function setupAdvancedFilters() {
 
   claimKind.addEventListener('change', () => {
     advancedFilters.claimKind = claimKind.value;
+    if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+  });
+  ciStatus.addEventListener('change', () => {
+    advancedFilters.ciStatus = ciStatus.value;
     if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
   });
 
@@ -805,6 +865,7 @@ function setupAdvancedFilters() {
 
   document.getElementById('reset-advanced-filters').addEventListener('click', () => {
     advancedFilters.claimKind = 'all';
+    advancedFilters.ciStatus = 'all';
     advancedFilters.useCodes = new Set();
     advancedFilters.patents = new Set();
     advancedFilters.ucQuery = '';
@@ -826,7 +887,10 @@ function applyAdvancedFilters(net, yearCtx) {
   return net.edges.filter(e => {
     if (!yearCtx.activeUCs.has(e.u)) return false;
     if (!selectedUCs.has(e.u)) return false;
-    // All claims are independent (dependent excluded from data)
+    const ci = yearCtx.ciByClaim[e.c] || null;
+    if (advancedFilters.ciStatus === 'matched' && !(ci && !ci.orphan)) return false;
+    if (advancedFilters.ciStatus === 'orphan' && !(ci && ci.orphan)) return false;
+    if (advancedFilters.ciStatus === 'high' && !(ci && ci.ci != null && ci.ci >= 0.92)) return false;
     const pat = yearCtx.claimToPat[e.c];
     if (selectedPats.size > 0 && !selectedPats.has(pat)) return false;
     return true;
@@ -880,32 +944,22 @@ function updateSelectedOverview(nda) {
   const drug = DATA.drugs.find(d => d.nda === nda);
   if (!drug) return;
   const tl = DATA.timelines[nda] || [];
-  const latest = tl.length ? tl[tl.length - 1] : null;
   const net = networkCache[nda] || null;
   const totalClaims = net && net.patents ? net.patents.reduce((s, p) => s + (p.claims ? p.claims.length : 0), 0) : null;
-  const read = drug.trap_score == null ? 'Missing' : drug.trap_score > 0.03 ? 'High' : drug.trap_score > 0 ? 'Positive' : drug.trap_score > -0.03 ? 'Near zero' : 'Negative';
-  const readSub = drug.trap_score == null
-    ? 'Label data unavailable or parsing incomplete'
-    : drug.trap_score > 0.03
-      ? 'Claims semantically outpace the label'
-      : drug.trap_score > 0
-        ? 'Mild positive scope gap'
-        : drug.trap_score > -0.03
-          ? 'Claims and label are closely aligned'
-          : 'Label matches use codes better than claims do';
+  const ciStats = getCIStats(nda, net);
+  const ciMean = ciStats.ci_mean ?? null;
+  const orphanRate = ciStats.orphan_rate ?? null;
 
   document.getElementById('d-name').textContent = `${drug.name} (${drug.nda})`;
   document.getElementById('d-ingredient').textContent = drug.ingredient || '-';
+  document.getElementById('d-ci').textContent = ciMean != null ? ciMean.toFixed(3) : '-';
+  document.getElementById('d-ci-sub').textContent = ciMean != null
+    ? (ciMean >= 0.92 ? 'Strong claim-label alignment' : ciMean >= 0.88 ? 'Moderate alignment' : 'Weak alignment')
+    : 'Claim-indication loads from CI index / network cache';
   document.getElementById('d-gap').textContent = formatGap(drug.trap_score);
-  document.getElementById('d-gap-sub').textContent = `Latest year: ${drug.ob_year ?? 'N/A'}`;
+  document.getElementById('d-gap-sub').textContent = `Latest year ${drug.ob_year ?? 'N/A'} | secondary measure`;
   document.getElementById('d-ucs').textContent = drug.n_use_codes != null ? String(drug.n_use_codes) : '-';
   document.getElementById('d-claims').textContent = totalClaims != null ? `${totalClaims.toLocaleString()} claims` : 'Loads on demand';
-
-  // Claim-indication stats
-  const ciMean = net ? net.ci_mean : null;
-  const orphanRate = net ? net.orphan_rate : null;
-  document.getElementById('d-ci').textContent = ciMean != null ? ciMean.toFixed(3) : '-';
-  document.getElementById('d-ci-sub').textContent = ciMean != null ? (ciMean >= 0.92 ? 'Strong alignment' : ciMean >= 0.88 ? 'Moderate' : 'Weak') : '-';
   document.getElementById('d-orphan').textContent = orphanRate != null ? `${(orphanRate * 100).toFixed(0)}%` : '-';
   document.getElementById('d-orphan-sub').textContent = orphanRate != null
     ? (orphanRate === 0 ? 'All claims match an indication' : `${Math.round(orphanRate * (totalClaims || 0))} claims with no indication match`)
@@ -915,20 +969,25 @@ function updateSelectedOverview(nda) {
 function updateSnapshotCards() {
   const sliderYear = parseInt(document.getElementById('year-slider')?.value || '2024', 10);
   const agg = getClosestAggregateYear(sliderYear);
+  const ciValues = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
+  const orphanValues = Object.values(CI_INDEX).map(v => v.orphan_rate).filter(v => v != null);
+  const aggCiMean = ciValues.length ? ciValues.reduce((a, b) => a + b, 0) / ciValues.length : null;
+  const aggOrphanMean = orphanValues.length ? orphanValues.reduce((a, b) => a + b, 0) / orphanValues.length : null;
   document.getElementById('agg-snapshot-meta').textContent = agg
     ? `Closest aggregate year: ${agg.y}`
     : 'Aggregate trend data unavailable';
+  document.getElementById('agg-ci').textContent = aggCiMean != null ? aggCiMean.toFixed(3) : '-';
+  document.getElementById('agg-orphan').textContent = aggOrphanMean != null ? `${(aggOrphanMean * 100).toFixed(0)}%` : '-';
   document.getElementById('agg-cu').textContent = agg && agg.cu != null ? agg.cu.toFixed(3) : '-';
   document.getElementById('agg-iu').textContent = agg && agg.iu != null ? agg.iu.toFixed(3) : '-';
-  document.getElementById('agg-gap').textContent = agg && agg.ts != null ? formatGap(agg.ts) : '-';
   document.getElementById('agg-ndas').textContent = agg && agg.n != null ? agg.n.toLocaleString() : '-';
   document.getElementById('agg-foot').textContent = agg
-    ? `Average claim-use similarity ${agg.cu != null ? agg.cu.toFixed(3) : 'N/A'} versus label-use similarity ${agg.iu != null ? agg.iu.toFixed(3) : 'N/A'} in ${agg.y}.`
+    ? `Mean claim-indication across indexed NDAs is ${aggCiMean != null ? aggCiMean.toFixed(3) : 'N/A'}; the year chart remains use-code based for ${agg.y}.`
     : 'Temporal trends are interactive: click a year to sync the explorer below.';
 
   if (!selectedDrug) {
     document.getElementById('drug-snapshot-meta').textContent = 'Select a drug to inspect its active year slice.';
-    ['drug-cu', 'drug-iu', 'drug-gap', 'drug-ci', 'drug-orphan', 'drug-active-ucs', 'drug-active-pats'].forEach(id => {
+    ['drug-ci', 'drug-orphan', 'drug-cu', 'drug-iu', 'drug-gap', 'drug-active-ucs', 'drug-active-pats'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.textContent = '-';
     });
@@ -941,21 +1000,17 @@ function updateSnapshotCards() {
   document.getElementById('drug-snapshot-meta').textContent = row
     ? `${drug ? drug.name : selectedDrug} | year ${row.y}`
     : `${drug ? drug.name : selectedDrug}`;
+  const ciStats = getCIStats(selectedDrug);
+  document.getElementById('drug-ci').textContent = ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : '-';
+  document.getElementById('drug-orphan').textContent = ciStats.orphan_rate != null ? `${(ciStats.orphan_rate * 100).toFixed(0)}%` : '-';
   document.getElementById('drug-cu').textContent = row && row.cu != null ? row.cu.toFixed(3) : '-';
   document.getElementById('drug-iu').textContent = row && row.iu != null ? row.iu.toFixed(3) : '-';
   document.getElementById('drug-gap').textContent = row && row.ts != null ? formatGap(row.ts) : '-';
   document.getElementById('drug-active-ucs').textContent = row && row.nuc != null ? row.nuc.toLocaleString() : '-';
   document.getElementById('drug-active-pats').textContent = row && row.np != null ? row.np.toLocaleString() : '-';
 
-  // Claim-indication from cached network
-  const net = networkCache[selectedDrug] || null;
-  const ciEl = document.getElementById('drug-ci');
-  const orphEl = document.getElementById('drug-orphan');
-  if (ciEl) ciEl.textContent = net && net.ci_mean != null ? net.ci_mean.toFixed(3) : '-';
-  if (orphEl) orphEl.textContent = net && net.orphan_rate != null ? `${(net.orphan_rate * 100).toFixed(0)}%` : '-';
-
   document.getElementById('drug-foot').textContent = row
-    ? `Year ${row.y} has ${row.nuc ?? '-'} active use codes and ${row.np ?? '-'} patents in the observed Orange Book slice.`
+    ? `Claim-indication stays headline for this drug (${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'}), while the year slider shows its changing use-code context in ${row.y}.`
     : 'No timeline data available for this selection.';
 }
 
@@ -966,19 +1021,21 @@ function renderDirectory() {
   const ingredientQ = (document.getElementById('dir-ingredient')?.value || '').trim().toLowerCase();
   const gapSign = document.getElementById('dir-gap-sign')?.value || 'all';
   const ucMin = document.getElementById('dir-usecodes')?.value || 'all';
-  const sort = document.getElementById('dir-sort')?.value || 'gap_desc';
+  const sort = document.getElementById('dir-sort')?.value || 'ci_desc';
   const networkFilter = document.getElementById('dir-network')?.value || 'all';
   const complexity = document.getElementById('dir-complexity')?.value || 'all';
 
   let rows = DATA.drugs.filter(d => {
     const text = `${d.name} ${d.nda} ${d.ingredient}`.toLowerCase();
     const networkMeta = getNetworkMeta(d.nda);
+    const ciStats = getCIStats(d.nda);
+    const ciMean = ciStats.ci_mean ?? null;
     if (q && !text.includes(q)) return false;
     if (family !== 'all' && !tokenizeIngredient(d.ingredient).includes(family)) return false;
     if (ingredientQ && !(d.ingredient || '').toLowerCase().includes(ingredientQ) && !(d.name || '').toLowerCase().includes(ingredientQ)) return false;
-    if (gapSign === 'positive' && !(d.trap_score != null && d.trap_score > 0)) return false;
-    if (gapSign === 'negative' && !(d.trap_score != null && d.trap_score < 0)) return false;
-    if (gapSign === 'missing' && d.trap_score != null) return false;
+    if (gapSign === 'positive' && !(ciMean != null && ciMean >= 0.92)) return false;
+    if (gapSign === 'negative' && !(ciMean != null && ciMean < 0.88)) return false;
+    if (gapSign === 'missing' && ciMean != null) return false;
     if (ucMin !== 'all' && (d.n_use_codes || 0) < parseInt(ucMin)) return false;
     if (networkFilter === 'loaded' && !networkMeta.hasNetwork) return false;
     if (networkFilter === 'missing' && networkMeta.hasNetwork) return false;
@@ -990,8 +1047,8 @@ function renderDirectory() {
   const nullLow = v => v == null ? -Infinity : v;
   const nullHigh = v => v == null ? Infinity : v;
   rows.sort((a, b) => {
-    if (sort === 'gap_desc') return nullLow(b.trap_score) - nullLow(a.trap_score);
-    if (sort === 'gap_asc') return nullHigh(a.trap_score) - nullHigh(b.trap_score);
+    if (sort === 'ci_desc') return nullLow(getCIStats(b.nda).ci_mean) - nullLow(getCIStats(a.nda).ci_mean);
+    if (sort === 'ci_asc') return nullHigh(getCIStats(a.nda).ci_mean) - nullHigh(getCIStats(b.nda).ci_mean);
     if (sort === 'edge_desc') return (getNetworkMeta(b.nda).edges || 0) - (getNetworkMeta(a.nda).edges || 0);
     if (sort === 'uc_desc') return (b.n_use_codes || 0) - (a.n_use_codes || 0);
     if (sort === 'name_asc') return (a.name || '').localeCompare(b.name || '');
@@ -1007,8 +1064,18 @@ function renderDirectory() {
     <tr>
       <td><strong>${d.name}</strong><br><span style="color:#8a96a3">NDA ${d.nda}</span></td>
       <td>${d.ingredient || '-'}</td>
-      <td style="font-weight:700;color:${d.trap_score == null ? '#8a96a3' : d.trap_score >= 0 ? '#D55E00' : '#009E73'}">${formatGap(d.trap_score)}</td>
+      <td style="font-weight:700;color:${(() => {
+        const ci = getCIStats(d.nda).ci_mean;
+        return ci == null ? '#8a96a3' : ci >= 0.92 ? '#0f766e' : ci >= 0.88 ? '#2563eb' : '#D55E00';
+      })()}">${(() => {
+        const ci = getCIStats(d.nda).ci_mean;
+        return ci != null ? ci.toFixed(3) : '-';
+      })()}</td>
       <td>${d.n_use_codes ?? '-'}</td>
+      <td>${(() => {
+        const orph = getCIStats(d.nda).orphan_rate;
+        return orph != null ? `${(orph * 100).toFixed(0)}%` : '-';
+      })()}</td>
       <td>${d.claim_uc != null ? d.claim_uc.toFixed(3) : '-'}</td>
       <td>${d.ind_uc != null ? d.ind_uc.toFixed(3) : '-'}</td>
       <td>${d.ob_year ?? '-'}</td>
@@ -1041,9 +1108,9 @@ function init() {
   // Stats
   document.getElementById('s-ndas').textContent = DATA.stats.n_treatment.toLocaleString();
   document.getElementById('s-years').textContent = `${DATA.stats.year_range[0]}-${DATA.stats.year_range[1]}`;
-  const withTs = DATA.drugs.filter(d => d.trap_score !== null);
-  const posTs = withTs.filter(d => d.trap_score > 0).length;
-  document.getElementById('s-trap').textContent = Math.round(100 * posTs / withTs.length) + '%';
+  const ciValues = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
+  const meanCi = ciValues.length ? ciValues.reduce((a, b) => a + b, 0) / ciValues.length : null;
+  document.getElementById('s-trap').textContent = meanCi != null ? meanCi.toFixed(3) : '-';
   document.getElementById('s-control').textContent = DATA.stats.n_control.toLocaleString();
 
   // Drug list
@@ -1229,12 +1296,12 @@ function renderDrugList(drugs, reset) {
     div.className = 'drug-item' + (selectedDrug === d.nda ? ' active' : '');
     div.dataset.nda = d.nda;
     div.onclick = () => selectDrug(d.nda);
-    const ts = d.trap_score;
-    const cls = ts != null && ts >= 0 ? 'positive' : ts != null ? 'negative' : '';
-    const tsText = ts != null ? `${ts >= 0 ? '+' : ''}${ts.toFixed(3)}` : 'N/A';
+    const ci = getCIStats(d.nda).ci_mean ?? null;
+    const cls = ci != null && ci >= 0.92 ? 'positive' : ci != null && ci < 0.88 ? 'negative' : '';
+    const ciText = ci != null ? ci.toFixed(3) : 'Load';
     const ingredientText = (d.ingredient || '-').substring(0, 30);
     div.innerHTML = `<strong>${d.name}</strong> <span style="color:#999">(${d.nda})</span><br>
-      <span class="trap ${cls}">${tsText}</span>
+      <span class="trap ${cls}">CI ${ciText}</span>
       &middot; ${d.n_use_codes} UCs &middot; ${ingredientText}`;
     fragment.appendChild(div);
   }
@@ -1394,8 +1461,10 @@ function drawTrendChart() {
     const idx = Math.max(0, Math.min(years.length - 1, Math.round((mx - pad.left) / ((w - pad.left - pad.right) / Math.max(1, years.length - 1)))));
     const yr = DATA.yearly[idx];
     if (!yr) return;
+    const ciValues = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
+    const aggCiMean = ciValues.length ? ciValues.reduce((a, b) => a + b, 0) / ciValues.length : null;
     const tooltip = document.getElementById('tooltip');
-    tooltip.innerHTML = `<strong>${yr.y}</strong><div class="tt-label">Claim-UC</div><div>${(yr.cu ?? 0).toFixed(3)}</div><div class="tt-label">Indication-UC</div><div>${(yr.iu ?? 0).toFixed(3)}</div><div class="tt-label">Scope gap</div><div>${(yr.ts ?? 0).toFixed(3)}</div><div class="tt-label">NDAs</div><div>${yr.n ?? '-'}</div>`;
+    tooltip.innerHTML = `<strong>${yr.y}</strong><div class="tt-label">Claim-Ind (all indexed NDAs)</div><div>${aggCiMean != null ? aggCiMean.toFixed(3) : 'N/A'}</div><div class="tt-label">Claim-UC</div><div>${(yr.cu ?? 0).toFixed(3)}</div><div class="tt-label">Indication-UC</div><div>${(yr.iu ?? 0).toFixed(3)}</div><div class="tt-label">Scope gap</div><div>${(yr.ts ?? 0).toFixed(3)}</div><div class="tt-label">NDAs</div><div>${yr.n ?? '-'}</div>`;
     tooltip.style.display = 'block';
     tooltip.style.left = (e.pageX + 14) + 'px';
     tooltip.style.top = (e.pageY - 14) + 'px';
@@ -1525,8 +1594,9 @@ function drawDrugChart(nda) {
     const idx = Math.max(0, Math.min(years.length - 1, Math.round((mx - pad2.left) / ((w - pad2.left - pad2.right) / Math.max(1, years.length - 1)))));
     const row = tl[idx];
     if (!row) return;
+    const ciStats = getCIStats(nda);
     const tooltip = document.getElementById('tooltip');
-    tooltip.innerHTML = `<strong>${drug ? drug.name : nda} | ${row.y}</strong><div class="tt-label">Claim-UC</div><div>${row.cu != null ? row.cu.toFixed(3) : 'N/A'}</div><div class="tt-label">Indication-UC</div><div>${row.iu != null ? row.iu.toFixed(3) : 'N/A'}</div><div class="tt-label">Scope gap</div><div>${row.ts != null ? row.ts.toFixed(3) : 'N/A'}</div><div class="tt-label">Use codes / patents</div><div>${row.nuc ?? '-'} / ${row.np ?? '-'}</div>`;
+    tooltip.innerHTML = `<strong>${drug ? drug.name : nda} | ${row.y}</strong><div class="tt-label">Claim-Indication</div><div>${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'}</div><div class="tt-label">Orphan claims</div><div>${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'}</div><div class="tt-label">Claim-UC</div><div>${row.cu != null ? row.cu.toFixed(3) : 'N/A'}</div><div class="tt-label">Indication-UC</div><div>${row.iu != null ? row.iu.toFixed(3) : 'N/A'}</div><div class="tt-label">Scope gap</div><div>${row.ts != null ? row.ts.toFixed(3) : 'N/A'}</div><div class="tt-label">Use codes / patents</div><div>${row.nuc ?? '-'} / ${row.np ?? '-'}</div>`;
     tooltip.style.display = 'block';
     tooltip.style.left = (e.pageX + 14) + 'px';
     tooltip.style.top = (e.pageY - 14) + 'px';
@@ -1609,6 +1679,7 @@ function renderSimpleNetwork(nda, year) {
   svg.attr('viewBox', `0 0 ${w} ${h}`);
 
   const tl = DATA.timelines[nda];
+  const ciStats = getCIStats(nda);
   if (!tl) {
     svg.append('text').attr('x', w / 2).attr('y', h / 2).attr('text-anchor', 'middle')
       .attr('fill', '#999').text('No timeline data');
@@ -1695,6 +1766,16 @@ function renderSimpleNetwork(nda, year) {
       .attr('font-size', '13px').attr('fill', best.ts >= 0 ? '#D55E00' : '#009E73')
       .text(`Gap: ${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}`);
   }
+  if (ciStats.ci_mean != null) {
+    svg.append('text').attr('x', w - 12).attr('y', 62).attr('text-anchor', 'end')
+      .attr('font-size', '12px').attr('fill', '#0f766e')
+      .text(`Claim-Ind: ${ciStats.ci_mean.toFixed(3)}`);
+  }
+  if (ciStats.orphan_rate != null) {
+    svg.append('text').attr('x', w - 12).attr('y', 78).attr('text-anchor', 'end')
+      .attr('font-size', '11px').attr('fill', '#6b7280')
+      .text(`Orphan claims: ${(ciStats.orphan_rate * 100).toFixed(0)}%`);
+  }
 
   sim.on('tick', () => {
     link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
@@ -1725,6 +1806,8 @@ function renderGATNetwork(nda, year, net, isHeavy) {
   // Find closest year in timeline
   const yearCtx = getFilterContext(nda, year, net);
   const best = yearCtx.best;
+  const ciMaps = buildClaimIndicationMaps(net);
+  const ciStats = getCIStats(nda, net);
 
   // Get active use codes for this year
   const activeUCs = yearCtx.activeUCs;
@@ -1992,8 +2075,15 @@ function renderGATNetwork(nda, year, net, isHeavy) {
         html += `<div class="tt-label">Gap</div><div class="tt-sim" style="color:${gap > 0 ? '#D55E00' : '#009E73'}">${gap >= 0 ? '+' : ''}${gap.toFixed(3)}</div>`;
       }
     } else if (d.type === 'claim') {
+      const ciInfo = getClaimCIInfo(ciMaps, d.id);
       html = `<strong>Claim</strong>`;
       html += `<div class="tt-label">Patent</div><div>${d.patent}</div>`;
+      if (ciInfo.ci && ciInfo.ci.ci != null) html += `<div class="tt-label">Claim-Indication</div><div class="tt-sim">${ciInfo.ci.ci.toFixed(3)}</div>`;
+      if (ciInfo.ci) html += `<div class="tt-label">Orphan</div><div>${ciInfo.ci.orphan ? 'Yes' : 'No'}</div>`;
+      if (ciInfo.indication && ciInfo.topEdge) {
+        html += `<div class="tt-label">Best indication match</div><div>${ciInfo.topEdge.s.toFixed(3)}</div>`;
+        if (ciInfo.indication.text) html += `<div class="tt-claim-text">${ciInfo.indication.text.substring(0, 220)}${ciInfo.indication.text.length > 220 ? '...' : ''}</div>`;
+      }
       if (d.text) html += `<div class="tt-claim-text">"${d.text}"</div>`;
       // Show connected UCs
       const connEdges = links.filter(l => (l.source.id || l.source) === d.id);
@@ -2037,9 +2127,14 @@ function renderGATNetwork(nda, year, net, isHeavy) {
     .attr('font-size', '11px').attr('fill', '#999')
     .text(`${activeEdges.length} edges | ${activePatents.length} patents`);
   document.getElementById('filter-summary').textContent =
-    `${activePatents.length} patents | ${totalClaims} claims | ${activeUCData.length} UCs | ${activeEdges.length} edges${wasCapped ? ' | reduced for performance' : ''}`;
-  if (wasCapped) {
+    `CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | orphan ${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'} | ${activePatents.length} patents | ${totalClaims} claims | ${activeUCData.length} UCs | ${activeEdges.length} edges${wasCapped ? ' | reduced for performance' : ''}`;
+  if (ciStats.ci_mean != null) {
     svg.append('text').attr('x', w - 12).attr('y', 72).attr('text-anchor', 'end')
+      .attr('font-size', '11px').attr('fill', '#0f766e')
+      .text(`Claim-Ind ${ciStats.ci_mean.toFixed(3)} | orphan ${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'}`);
+  }
+  if (wasCapped) {
+    svg.append('text').attr('x', w - 12).attr('y', ciStats.ci_mean != null ? 88 : 72).attr('text-anchor', 'end')
       .attr('font-size', '10px').attr('fill', '#e0af68')
       .text(`Showing top ${topN}/UC (${MAX_EDGES_NETWORK} max) — increase Top N for more`);
   }
@@ -2112,7 +2207,8 @@ function renderSankey(nda, year, net, isHeavy) {
 
   const yearCtx = getFilterContext(nda, year, net);
   const best = yearCtx.best;
-  const activeUCs = yearCtx.activeUCs;
+  const ciMaps = buildClaimIndicationMaps(net);
+  const ciStats = getCIStats(nda, net);
   const indUCmap = {};
   (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
 
@@ -2210,7 +2306,7 @@ function renderSankey(nda, year, net, isHeavy) {
       .text(`Showing top ${sankeyCap} edges by similarity (reduced for performance)`);
   }
   document.getElementById('filter-summary').textContent =
-    `${patents.length} patents | ${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} Sankey links${sankeyCapped ? ' | reduced for performance' : ''}`;
+    `CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | orphan ${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'} | ${patents.length} patents | ${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} Sankey links${sankeyCapped ? ' | reduced for performance' : ''}`;
 
   // Draw flows: Patent → Claim
   const flowG = svg.append('g').attr('opacity', 0.3);
@@ -2286,8 +2382,12 @@ function renderSankey(nda, year, net, isHeavy) {
       } else if (claimIds.includes(hit.id)) {
         const meta = {};
         net.patents.forEach(p => p.claims.forEach(c => { if (c.id === hit.id) Object.assign(meta, c, {patent: p.pat}); }));
+        const ciInfo = getClaimCIInfo(ciMaps, hit.id);
         html = `<strong>Claim</strong>`;
         html += `<div>Patent ${meta.patent || '?'}</div>`;
+        if (ciInfo.ci && ciInfo.ci.ci != null) html += `<div class="tt-label">Claim-Indication</div><div>${ciInfo.ci.ci.toFixed(3)}</div>`;
+        if (ciInfo.ci) html += `<div class="tt-label">Orphan</div><div>${ciInfo.ci.orphan ? 'Yes' : 'No'}</div>`;
+        if (ciInfo.indication && ciInfo.topEdge) html += `<div class="tt-claim-text">${ciInfo.indication.text.substring(0, 220)}${ciInfo.indication.text.length > 220 ? '...' : ''}</div>`;
         if (meta.text) html += `<div class="tt-claim-text">"${meta.text}"</div>`;
       } else {
         const desc = net.use_codes.find(u => u.code === hit.id);
@@ -2320,7 +2420,8 @@ function renderHeatmap(nda, year, net) {
   // Find closest year
   const yearCtx = getFilterContext(nda, year, net);
   const best = yearCtx.best;
-  const activeUCs = yearCtx.activeUCs;
+  const ciMaps = buildClaimIndicationMaps(net);
+  const ciStats = getCIStats(nda, net);
   const indUCmap = {};
   (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
 
@@ -2345,7 +2446,7 @@ function renderHeatmap(nda, year, net) {
     return;
   }
   document.getElementById('filter-summary').textContent =
-    `${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} heatmap edges`;
+    `CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | orphan ${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'} | ${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} heatmap edges`;
 
   // Build similarity and scope gap maps
   const simMap = {};
@@ -2395,7 +2496,7 @@ function renderHeatmap(nda, year, net) {
   ctx.fillStyle = '#1a365d';
   ctx.font = 'bold 14px Segoe UI, Arial';
   ctx.textAlign = 'left';
-  ctx.fillText(`${drugName} — ${best.y} | ${claimIds.length} claims x ${ucCodes.length} UCs`, 8, 16);
+  ctx.fillText(`${drugName} — ${best.y} | CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | ${claimIds.length} claims x ${ucCodes.length} UCs`, 8, 16);
 
   // Diverging color: scope gap = claim_sim - ind_sim
   // Red = positive (claim exceeds label), Green = negative (label covers), White = zero
@@ -2494,10 +2595,14 @@ function renderHeatmap(nda, year, net) {
 
       const desc = ucDescMap[uc];
       const gap = gapMap[cid + '|' + uc] ?? ((sim != null && iu != null) ? sim - iu : null);
+      const ciInfo = getClaimCIInfo(ciMaps, cid);
 
       let html = `<strong>${uc}</strong>`;
       if (desc) html += `<div class="tt-claim-text">${desc}</div>`;
       html += `<div style="margin-top:6px"><strong>Claim</strong> (Pat ${meta.patent||''})</div>`;
+      if (ciInfo.ci && ciInfo.ci.ci != null) html += `<div class="tt-label">Claim-Indication</div><div>${ciInfo.ci.ci.toFixed(4)}</div>`;
+      if (ciInfo.ci) html += `<div class="tt-label">Orphan</div><div>${ciInfo.ci.orphan ? 'Yes' : 'No'}</div>`;
+      if (ciInfo.indication && ciInfo.topEdge) html += `<div class="tt-claim-text">${ciInfo.indication.text.substring(0, 220)}${ciInfo.indication.text.length > 220 ? '...' : ''}</div>`;
       if (meta.text) html += `<div class="tt-claim-text">"${meta.text.substring(0, 200)}${meta.text.length > 200 ? '...' : ''}"</div>`;
       if (gap != null) {
         html += `<div class="tt-label" style="margin-top:8px">Scope Gap</div>`;
