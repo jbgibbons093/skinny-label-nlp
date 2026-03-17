@@ -65,7 +65,7 @@
       <div class="stat-grid">
         <div class="stat"><div class="value" id="s-ndas">-</div><div class="label">Treatment NDAs</div></div>
         <div class="stat"><div class="value" id="s-years">-</div><div class="label">Years</div></div>
-        <div class="stat"><div class="value" id="s-trap">-</div><div class="label">Mean Trap Score</div></div>
+        <div class="stat"><div class="value" id="s-trap">-</div><div class="label">Claims Exceed Label</div></div>
         <div class="stat"><div class="value" id="s-control">-</div><div class="label">Control NDAs</div></div>
       </div>
     </div>
@@ -146,7 +146,10 @@ function init() {
   // Stats
   document.getElementById('s-ndas').textContent = DATA.stats.n_treatment.toLocaleString();
   document.getElementById('s-years').textContent = `${DATA.stats.year_range[0]}-${DATA.stats.year_range[1]}`;
-  document.getElementById('s-trap').textContent = DATA.stats.trap_score_mean.toFixed(3);
+  // Compute % of drugs where patent claims exceed label indications
+  const withTs = DATA.drugs.filter(d => d.trap_score !== null);
+  const posTs = withTs.filter(d => d.trap_score > 0).length;
+  document.getElementById('s-trap').textContent = Math.round(100 * posTs / withTs.length) + '%';
   document.getElementById('s-control').textContent = DATA.stats.n_control.toLocaleString();
 
   // Drug list (paginated)
