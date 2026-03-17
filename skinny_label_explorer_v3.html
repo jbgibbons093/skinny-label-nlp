@@ -971,7 +971,13 @@ function setTab(tab) {
     drawCIDistribution();
   }
   if (tab === 'explorer') {
-    if (selectedDrug) drawDrugChart(selectedDrug);
+    // Re-sync view state when returning to explorer
+    setView(currentView);
+    if (selectedDrug) {
+      drawDrugChart(selectedDrug);
+      const yr = parseInt(document.getElementById('year-slider').value);
+      renderNetwork(selectedDrug, yr);
+    }
   }
 }
 
