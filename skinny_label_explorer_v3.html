@@ -2592,7 +2592,7 @@ function renderHeatmap(nda, year, net) {
     ctx.fillStyle = '#999';
     ctx.font = '14px Segoe UI, Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(`No heatmap cells remain after filters in ${best.y}`, canvas.width / 2, canvas.height / 2);
+    ctx.fillText(`No heatmap cells remain after filters${best ? ' in ' + best.y : ''}`, canvas.width / 2, canvas.height / 2);
     document.getElementById('filter-summary').textContent = 'Current filters remove all heatmap cells for this year';
     document.getElementById('pat-legend').innerHTML = '';
     return;
@@ -2628,23 +2628,7 @@ function renderHeatmap(nda, year, net) {
     return a.localeCompare(b);
   });
 
-  // Canvas rendering
-  const canvas = document.getElementById('heatmap-canvas');
-  const ctx = canvas.getContext('2d');
-
-  const cellW = Math.max(16, Math.min(40, 600 / colCount));
-  const cellH = Math.max(8, Math.min(20, 500 / claimIds.length));
-  const labelLeft = 100;
-  const labelTop = 80;
-  const w = labelLeft + colCount * cellW + 60;
-  const h = labelTop + claimIds.length * cellH + 20;
-
-  canvas.width = w;
-  canvas.height = h;
-  canvas.style.width = w + 'px';
-  canvas.style.height = h + 'px';
-
-  // For claim-indication mode, swap columns from UCs to indications
+  // Determine columns based on mode
   let colLabels, colCount;
   if (isClaimInd) {
     const indications = net.indications || [];
@@ -2676,11 +2660,27 @@ function renderHeatmap(nda, year, net) {
     'claim-ind': 'Claim-Indication Similarity',
   };
 
+  // Canvas rendering
+  const canvas = document.getElementById('heatmap-canvas');
+  const ctx = canvas.getContext('2d');
+
+  const cellW = Math.max(16, Math.min(40, 600 / colCount));
+  const cellH = Math.max(8, Math.min(20, 500 / claimIds.length));
+  const labelLeft = 100;
+  const labelTop = 80;
+  const w = labelLeft + colCount * cellW + 60;
+  const h = labelTop + claimIds.length * cellH + 20;
+
+  canvas.width = w;
+  canvas.height = h;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
   // Title
   ctx.fillStyle = '#1a365d';
   ctx.font = 'bold 14px Segoe UI, Arial';
   ctx.textAlign = 'left';
-  ctx.fillText(`${drugName} — ${best.y} | ${modeTitles[heatmapMode]} | ${claimIds.length} claims x ${colCount} ${isClaimInd ? 'indications' : 'UCs'}`, 8, 16);
+  ctx.fillText(`${drugName}${best ? ' — ' + best.y : ''} | ${modeTitles[heatmapMode]} | ${claimIds.length} claims x ${colCount} ${isClaimInd ? 'indications' : 'UCs'}`, 8, 16);
 
   // Color functions
   function gapColor(gap) {
