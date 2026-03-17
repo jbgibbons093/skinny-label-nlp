@@ -214,6 +214,7 @@
         <div class="legend">
           <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Claim-UC</div>
           <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Ind-UC</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Claim-Ind</div>
           <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Scope Gap</div>
         </div>
       </div>
@@ -1431,6 +1432,22 @@ function drawTrendChart() {
   drawLine(cuMean, '#D55E00');
   drawLine(iuMean, '#009E73');
 
+  // Claim-Indication average horizontal line (from CI_INDEX)
+  if (typeof CI_INDEX === 'object' && CI_INDEX) {
+    const ciVals = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
+    if (ciVals.length > 0) {
+      const avgCI = ciVals.reduce((a, b) => a + b, 0) / ciVals.length;
+      if (avgCI >= yMin && avgCI <= yMax) {
+        const ciY = yScale(avgCI);
+        ctx.beginPath(); ctx.strokeStyle = '#0072B2'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+        ctx.moveTo(pad.left, ciY); ctx.lineTo(w - pad.right, ciY);
+        ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#0072B2'; ctx.font = '10px Arial'; ctx.textAlign = 'right';
+        ctx.fillText(`Claim-Ind avg ${avgCI.toFixed(3)}`, w - pad.right, ciY - 4);
+      }
+    }
+  }
+
   // Trap on right axis
   const tMin = -0.01, tMax = 0.03;
   const tScale = v => pad.top + (1 - (v - tMin) / (tMax - tMin)) * (h - pad.top - pad.bottom);
@@ -1587,6 +1604,17 @@ function drawDrugChart(nda) {
   drawLine(cu, '#D55E00', false, yScale);
   drawLine(iu, '#009E73', false, yScale);
   drawLine(trap, '#CC79A7', true, tScale);
+
+  // Claim-Indication horizontal reference line (static — not per-year)
+  const ciStats = getCIStats(nda);
+  if (ciStats.ci_mean != null && ciStats.ci_mean >= yMin && ciStats.ci_mean <= yMax) {
+    const ciY = yScale(ciStats.ci_mean);
+    ctx.beginPath(); ctx.strokeStyle = '#0072B2'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    ctx.moveTo(pad2.left, ciY); ctx.lineTo(w - pad2.right, ciY);
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#0072B2'; ctx.font = '10px Arial'; ctx.textAlign = 'left';
+    ctx.fillText(`CI ${ciStats.ci_mean.toFixed(3)}`, pad2.left + 4, ciY - 4);
+  }
 
   const currentYear = parseInt(document.getElementById('year-slider')?.value || '0', 10);
   const currentIdx = years.indexOf(currentYear);
