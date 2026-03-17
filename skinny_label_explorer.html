@@ -32,6 +32,8 @@
   .drug-item .trap { font-size: 11px; font-weight: 600; }
   .drug-item .trap.positive { color: var(--red); }
   .drug-item .trap.negative { color: var(--green); }
+  .load-more { padding: 8px; text-align: center; color: var(--blue); cursor: pointer; font-size: 12px; font-weight: 600; }
+  .load-more:hover { background: #eef; border-radius: 4px; }
   .content { display: flex; flex-direction: column; gap: 16px; }
   .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   #trend-chart { width: 100%; height: 260px; }
@@ -45,6 +47,7 @@
   .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
   .tooltip { position: absolute; background: rgba(0,0,0,0.85); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; pointer-events: none; z-index: 100; }
   .info-text { font-size: 12px; color: var(--gray); line-height: 1.5; }
+  .loading { text-align: center; padding: 40px; color: var(--gray); font-size: 14px; }
   @media (max-width: 900px) { .main { grid-template-columns: 1fr; } .panels { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -128,14 +131,15 @@
 // Load data
 let DATA = null;
 let selectedDrug = null;
-let trendChart = null;
-let drugChart = null;
+let currentFiltered = null;
+let displayedCount = 0;
+const PAGE_SIZE = 50;
 
 fetch('site_data.json').then(r => r.json()).then(data => {
   DATA = data;
   init();
 }).catch(e => {
-  document.querySelector('.content').innerHTML = '<div class="card"><p>Error loading data. Make sure site_data.json is in the same directory.</p></div>';
+  document.querySelector('.content').innerHTML = '<div class="card"><p>Error loading data: ' + e.message + '. Make sure site_data.json is in the same directory.</p></div>';
 });
 
 function init() {
@@ -145,16 +149,21 @@ function init() {
   document.getElementById('s-trap').textContent = DATA.stats.trap_score_mean.toFixed(3);
   document.getElementById('s-control').textContent = DATA.stats.n_control.toLocaleString();
 
-  // Drug list
-  renderDrugList(DATA.drugs);
+  // Drug list (paginated)
+  currentFiltered = DATA.drugs;
+  renderDrugList(currentFiltered, true);
 
-  // Search
+  // Search with debounce
+  let searchTimer = null;
   document.getElementById('drug-search').addEventListener('input', e => {
-    const q = e.target.value.toLowerCase();
-    const filtered = DATA.drugs.filter(d =>
-      d.name.toLowerCase().includes(q) || d.nda.includes(q) || d.ingredient.toLowerCase().includes(q)
-    );
-    renderDrugList(filtered);
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const q = e.target.value.toLowerCase();
+      currentFiltered = DATA.drugs.filter(d =>
+        d.name.toLowerCase().includes(q) || d.nda.includes(q) || d.ingredient.toLowerCase().includes(q)
+      );
+      renderDrugList(currentFiltered, true);
+    }, 150);
   });
 
   // Year slider
@@ -170,17 +179,44 @@ function init() {
   if (DATA.drugs.length > 0) selectDrug(DATA.drugs[0].nda);
 }
 
-function renderDrugList(drugs) {
+function renderDrugList(drugs, reset) {
   const list = document.getElementById('drug-list');
-  list.innerHTML = drugs.map(d => {
+  if (reset) {
+    list.innerHTML = '';
+    displayedCount = 0;
+  }
+
+  const end = Math.min(displayedCount + PAGE_SIZE, drugs.length);
+  const fragment = document.createDocumentFragment();
+
+  for (let i = displayedCount; i < end; i++) {
+    const d = drugs[i];
+    const div = document.createElement('div');
+    div.className = 'drug-item' + (selectedDrug === d.nda ? ' active' : '');
+    div.dataset.nda = d.nda;
+    div.onclick = () => selectDrug(d.nda);
     const cls = d.trap_score >= 0 ? 'positive' : 'negative';
-    const active = selectedDrug === d.nda ? ' active' : '';
-    return `<div class="drug-item${active}" data-nda="${d.nda}" onclick="selectDrug('${d.nda}')">
-      <strong>${d.name}</strong> <span style="color:#999">(${d.nda})</span><br>
+    div.innerHTML = `<strong>${d.name}</strong> <span style="color:#999">(${d.nda})</span><br>
       <span class="trap ${cls}">${d.trap_score >= 0 ? '+' : ''}${d.trap_score.toFixed(3)}</span>
-      &middot; ${d.n_use_codes} UCs &middot; ${d.ingredient.substring(0,30)}
-    </div>`;
-  }).join('');
+      &middot; ${d.n_use_codes} UCs &middot; ${d.ingredient.substring(0,30)}`;
+    fragment.appendChild(div);
+  }
+
+  // Remove existing "load more" button
+  const existing = list.querySelector('.load-more');
+  if (existing) existing.remove();
+
+  list.appendChild(fragment);
+  displayedCount = end;
+
+  // Add "load more" if there are more drugs
+  if (displayedCount < drugs.length) {
+    const more = document.createElement('div');
+    more.className = 'load-more';
+    more.textContent = `Show more (${displayedCount} of ${drugs.length})`;
+    more.onclick = () => renderDrugList(drugs, false);
+    list.appendChild(more);
+  }
 }
 
 function selectDrug(nda) {
@@ -215,10 +251,10 @@ function drawTrendChart() {
 
   ctx.clearRect(0, 0, w, h);
 
-  const years = DATA.yearly.map(d => d.year);
-  const cuMean = DATA.yearly.map(d => d.claim_usecode_max_per_uc_mean_mean || 0);
-  const iuMean = DATA.yearly.map(d => d.indication_usecode_mean_mean || 0);
-  const trapMean = DATA.yearly.map(d => d.trap_score_mean || 0);
+  const years = DATA.yearly.map(d => d.y);
+  const cuMean = DATA.yearly.map(d => d.cu || 0);
+  const iuMean = DATA.yearly.map(d => d.iu || 0);
+  const trapMean = DATA.yearly.map(d => d.ts || 0);
 
   const xScale = i => pad.left + (i / (years.length - 1)) * (w - pad.left - pad.right);
 
@@ -295,7 +331,6 @@ function drawDrugChart(nda) {
   canvas.width = rect.width - 32;
   canvas.height = 260;
   const w = canvas.width, h = canvas.height;
-  const pad = {top: 20, right: 20, bottom: 35, left: 50};
 
   ctx.clearRect(0, 0, w, h);
 
@@ -306,15 +341,15 @@ function drawDrugChart(nda) {
     return;
   }
 
-  const padR = 50; // right padding for secondary axis
+  const padR = 50;
   const pad2 = {top: 20, right: padR, bottom: 35, left: 50};
 
-  const years = tl.map(d => d.year);
-  const cu = tl.map(d => d.claim_usecode_max_per_uc_mean != null ? d.claim_usecode_max_per_uc_mean : null);
-  const iu = tl.map(d => d.indication_usecode_mean != null ? d.indication_usecode_mean : null);
-  const trap = tl.map(d => d.trap_score != null ? d.trap_score : null);
+  const years = tl.map(d => d.y);
+  const cu = tl.map(d => d.cu != null ? d.cu : null);
+  const iu = tl.map(d => d.iu != null ? d.iu : null);
+  const trap = tl.map(d => d.ts != null ? d.ts : null);
 
-  // Left axis: similarity scores (cu, iu)
+  // Left axis: similarity scores
   const simVals = [...cu, ...iu].filter(v => v !== null);
   const yMin = simVals.length ? Math.min(...simVals) - 0.01 : 0;
   const yMax = simVals.length ? Math.max(...simVals) + 0.01 : 1;
@@ -331,7 +366,6 @@ function drawDrugChart(nda) {
   // Axes
   ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.5;
   ctx.beginPath(); ctx.moveTo(pad2.left, pad2.top); ctx.lineTo(pad2.left, h - pad2.bottom); ctx.lineTo(w - pad2.right, h - pad2.bottom); ctx.stroke();
-  // Right axis line
   ctx.beginPath(); ctx.strokeStyle = '#CC79A7'; ctx.lineWidth = 0.5;
   ctx.moveTo(w - pad2.right, pad2.top); ctx.lineTo(w - pad2.right, h - pad2.bottom); ctx.stroke();
 
@@ -349,7 +383,7 @@ function drawDrugChart(nda) {
     }
   });
 
-  // Left Y ticks (similarity)
+  // Left Y ticks
   ctx.fillStyle = '#666'; ctx.textAlign = 'right';
   const step = (yMax - yMin) / 4;
   for (let i = 0; i <= 4; i++) {
@@ -357,7 +391,7 @@ function drawDrugChart(nda) {
     ctx.fillText(v.toFixed(3), pad2.left - 4, yScale(v) + 3);
   }
 
-  // Right Y ticks (trap score)
+  // Right Y ticks
   ctx.fillStyle = '#CC79A7'; ctx.textAlign = 'left';
   const tStep = (tMax - tMin) / 4;
   for (let i = 0; i <= 4; i++) {
@@ -406,7 +440,7 @@ function renderNetwork(nda, year) {
   // Find closest year
   let best = tl[0];
   for (const entry of tl) {
-    if (Math.abs(entry.year - year) < Math.abs(best.year - year)) best = entry;
+    if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry;
   }
   if (!best) return;
 
@@ -417,14 +451,12 @@ function renderNetwork(nda, year) {
   const nodes = [];
   const links = [];
 
-  // Drug node (center)
   nodes.push({id: 'drug', label: drugName, type: 'drug', r: 16});
 
-  // Use code nodes
-  const ucs = best.use_codes || [];
+  const ucs = best.ucs || [];
   ucs.forEach((uc, i) => {
-    const nodeId = `uc_${uc.code}`;
-    nodes.push({id: nodeId, label: uc.code, type: 'usecode', r: 8, cu: uc.cu, iu: uc.iu});
+    const nodeId = `uc_${uc.c}`;
+    nodes.push({id: nodeId, label: uc.c, type: 'usecode', r: 8, cu: uc.cu, iu: uc.iu});
     links.push({
       source: 'drug', target: nodeId,
       cu: uc.cu || 0, iu: uc.iu || 0,
@@ -463,7 +495,7 @@ function renderNetwork(nda, year) {
     .attr('cursor', 'grab');
 
   node.append('text')
-    .text(d => d.type === 'drug' ? d.label : d.label)
+    .text(d => d.label)
     .attr('font-size', d => d.type === 'drug' ? '11px' : '9px')
     .attr('font-weight', d => d.type === 'drug' ? '600' : '400')
     .attr('text-anchor', 'middle')
@@ -494,13 +526,13 @@ function renderNetwork(nda, year) {
   // Year label
   svg.append('text').attr('x', w - 10).attr('y', 20).attr('text-anchor', 'end')
     .attr('font-size', '14px').attr('font-weight', '700').attr('fill', '#0072B2')
-    .text(`${best.year} | ${ucs.length} use codes`);
+    .text(`${best.y} | ${ucs.length} use codes`);
 
-  // Info
-  if (best.trap_score !== undefined) {
+  // Trap score info
+  if (best.ts !== undefined) {
     svg.append('text').attr('x', w - 10).attr('y', 38).attr('text-anchor', 'end')
       .attr('font-size', '12px').attr('fill', '#666')
-      .text(`Trap: ${best.trap_score >= 0 ? '+' : ''}${best.trap_score.toFixed(3)}`);
+      .text(`Trap: ${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}`);
   }
 
   sim.on('tick', () => {
