@@ -181,7 +181,7 @@
       <p class="info-text">
         This tool visualizes the semantic relationship between <strong>individual patent claims</strong>,
         Orange Book use codes, and approved label indications for FDA-approved drugs.
-        The <strong>scope gap</strong> (formerly "scope gap") measures how far patent claims semantically
+        The <strong>scope gap</strong> measures how far patent claims semantically
         exceed what the drug's label actually covers.
       </p>
       <div class="methods-toggle" id="methods-toggle" onclick="document.getElementById('methods-body').classList.toggle('open'); this.textContent = this.textContent.includes('+') ? '- Hide methods' : '+ Show methods'">+ Show methods</div>
@@ -196,11 +196,11 @@
           <li><strong>Scope Gap:</strong> = Claim-UC similarity minus Indication-UC similarity. Positive = patent claims reach beyond label.</li>
         </ul>
 
-        <h4>Scope Gap (formerly Scope Gap)</h4>
-        <code>scope_gap = mean(max_claim_sim_per_UC) - mean(indication_UC_sim)</code><br>
-        For each use code, we find the single best-matching claim (max across all independent + dependent claims).
-        The average of these per-UC maxima is compared to the average indication-UC similarity.
-        A positive scope gap means the patent portfolio semantically covers territory that the label does not.
+        <h4>Scope Gap</h4>
+        At the edge level: <code>scope_gap = cosine_sim(claim, UC) - cosine_sim(indication, UC)</code><br>
+        Each claim-UC pair has its own scope gap. Positive = that claim semantically exceeds the label
+        for that use code. The NDA-level scope gap is a summary statistic (mean of per-edge gaps).
+        This is an exploratory measure; formal validation (AUC against manual mappings) is pending.
 
         <h4>Similarity Floor</h4>
         Biomedical embeddings have a floor at ~0.82 cosine similarity — even unrelated texts score this high.
@@ -211,7 +211,8 @@
         Independent claims define broad patent scope ("A method of treating..."). Dependent claims narrow
         to specifics ("...wherein the disease is cardiovascular disease"). Both are embedded individually.
         228,661 total claims: 52,982 independent, 175,580 dependent.
-        The dependent claim toggle shows how much they contribute to the scope gap.
+        Independent claims account for 81% of edges above threshold. Including dependent claims
+        slightly attenuates the scope gap (mean 0.0086 vs 0.0097 independent-only).
 
         <h4>Data Sources</h4>
         <ul style="margin:6px 0 6px 20px">
@@ -225,7 +226,15 @@
         <h4>Network Data</h4>
         1,013,672 claim-UC edges (all pairs with cosine &ge; 0.88) across 1,924 NDAs.
         80.8% of edges from independent claims, 19.2% from dependent claims.
-        The "Top N per UC" control adjusts how many claims are shown per use code.
+        The "Top N per UC" control (Network view only) adjusts how many claims are shown per use code.
+
+        <h4>Limitations</h4>
+        <ul style="margin:6px 0 6px 20px">
+          <li>Validation against manual claim-UC mappings is pending (Phase 0)</li>
+          <li>Compressed similarity range (0.82&ndash;1.0) limits interpretability</li>
+          <li>234 of 1,966 treatment NDAs lack scope gap data (missing labels or parsing failures)</li>
+          <li>42 NDAs lack claim-level network data</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -256,29 +265,39 @@ const PAT_COLORS = [
 // ======================================================================
 // Load data
 // ======================================================================
-document.querySelector('.content').insertAdjacentHTML('afterbegin',
-  '<div class="card" id="loading-msg"><p style="text-align:center;color:#999;padding:20px">Loading data (97 MB)...</p></div>');
-
-fetch('site_data_gat.json').then(r => {
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  return r.json();
-}).then(data => {
+// Load base data first (3 MB), then networks (94 MB) in background
+fetch('site_data.json').then(r => r.json()).then(data => {
   DATA = data;
-  console.log('Loaded site_data_gat.json, networks:', Object.keys(data.networks || {}).length);
-  const el = document.getElementById('loading-msg');
-  if (el) el.remove();
+  DATA.networks = null;
   init();
-}).catch(e => {
-  console.warn('GAT load failed:', e.message, '- falling back to site_data.json');
-  fetch('site_data.json').then(r => r.json()).then(data => {
-    DATA = data;
-    const el = document.getElementById('loading-msg');
-    if (el) el.remove();
-    init();
-  }).catch(e2 => {
-    document.querySelector('.content').innerHTML =
-      '<div class="card"><p>Error loading data: ' + e2.message + '</p></div>';
+
+  // Load networks in background
+  const netStatus = document.createElement('div');
+  netStatus.id = 'net-loading';
+  netStatus.style.cssText = 'font-size:11px;color:#999;padding:4px 0;';
+  netStatus.textContent = 'Loading claim-level network data (94 MB)...';
+  document.getElementById('net-legend').after(netStatus);
+
+  fetch('networks.json').then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(networks => {
+    DATA.networks = networks;
+    console.log('Networks loaded:', Object.keys(networks).length, 'NDAs');
+    const el = document.getElementById('net-loading');
+    if (el) el.textContent = 'Network data loaded (' + Object.keys(networks).length + ' NDAs)';
+    setTimeout(() => { if (el) el.remove(); }, 3000);
+    if (currentView !== 'simple' && selectedDrug) {
+      renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+    }
+  }).catch(e => {
+    console.warn('Networks load failed:', e.message);
+    const el = document.getElementById('net-loading');
+    if (el) el.textContent = 'Network data unavailable: ' + e.message;
   });
+}).catch(e => {
+  document.querySelector('.content').innerHTML =
+    '<div class="card"><p>Error loading data: ' + e.message + '</p></div>';
 });
 
 // ======================================================================
@@ -471,9 +490,11 @@ function renderDrugList(drugs, reset) {
     div.className = 'drug-item' + (selectedDrug === d.nda ? ' active' : '');
     div.dataset.nda = d.nda;
     div.onclick = () => selectDrug(d.nda);
-    const cls = d.trap_score >= 0 ? 'positive' : 'negative';
+    const ts = d.trap_score;
+    const cls = ts != null && ts >= 0 ? 'positive' : ts != null ? 'negative' : '';
+    const tsText = ts != null ? `${ts >= 0 ? '+' : ''}${ts.toFixed(3)}` : 'N/A';
     div.innerHTML = `<strong>${d.name}</strong> <span style="color:#999">(${d.nda})</span><br>
-      <span class="trap ${cls}">${d.trap_score >= 0 ? '+' : ''}${d.trap_score.toFixed(3)}</span>
+      <span class="trap ${cls}">${tsText}</span>
       &middot; ${d.n_use_codes} UCs &middot; ${d.ingredient.substring(0, 30)}`;
     fragment.appendChild(div);
   }
@@ -705,11 +726,31 @@ function getUCFilter() {
 function renderNetwork(nda, year) {
   if (currentSim) { currentSim.stop(); currentSim = null; }
 
-  if (currentView === 'heatmap' && DATA.networks && DATA.networks[nda]) {
+  const hasNet = DATA.networks && DATA.networks[nda];
+
+  if (currentView !== 'simple' && !hasNet) {
+    // Show fallback message for advanced views without network data
+    const svg = d3.select('#network-svg');
+    svg.selectAll('*').remove();
+    const rect = svg.node().getBoundingClientRect();
+    svg.attr('viewBox', `0 0 ${rect.width} 400`);
+    svg.append('text').attr('x', rect.width / 2).attr('y', 180).attr('text-anchor', 'middle')
+      .attr('fill', '#999').attr('font-size', '14px')
+      .text('Claim-level network data unavailable for this NDA.');
+    svg.append('text').attr('x', rect.width / 2).attr('y', 205).attr('text-anchor', 'middle')
+      .attr('fill', '#bbb').attr('font-size', '12px')
+      .text(DATA.networks ? 'This drug is not in the network dataset (42 NDAs excluded).' : 'Network data is still loading...');
+    document.getElementById('pat-legend').innerHTML = '';
+    document.getElementById('heatmap-wrap').style.display = 'none';
+    document.querySelector('.network-container').style.display = '';
+    return;
+  }
+
+  if (currentView === 'heatmap' && hasNet) {
     renderHeatmap(nda, year);
-  } else if (currentView === 'sankey' && DATA.networks && DATA.networks[nda]) {
+  } else if (currentView === 'sankey' && hasNet) {
     renderSankey(nda, year);
-  } else if (currentView === 'gat' && DATA.networks && DATA.networks[nda]) {
+  } else if (currentView === 'gat' && hasNet) {
     renderGATNetwork(nda, year);
   } else {
     renderSimpleNetwork(nda, year);

@@ -414,8 +414,8 @@
 <!-- Legend -->
 <div class="legend">
   <div class="legend-item"><div class="legend-dot status-done">✓</div> Complete</div>
-  <div class="legend-item"><div class="legend-dot status-progress">⟳</div> In Progress</div>
-  <div class="legend-item"><div class="legend-dot status-written">✎</div> Code Written</div>
+  <div class="legend-item"><div class="legend-dot status-done">✓</div> In Progress</div>
+  <div class="legend-item"><div class="legend-dot status-done">✓</div> Code Written</div>
   <div class="legend-item"><div class="legend-dot status-planned">○</div> Planned</div>
 </div>
 
@@ -435,7 +435,7 @@
     <div class="artifacts">
       <div class="artifact">SL_DATA, SL_EMBEDDINGS, SL_LABELS_RAW</div>
       <div class="artifact">PRIMARY_EMBEDDING_MODEL <span class="count">S-PubMedBert-MS-MARCO</span></div>
-      <div class="artifact">NO_MATCH_THRESHOLD <span class="count">0.3 (to calibrate)</span></div>
+      <div class="artifact">NO_MATCH_THRESHOLD <span class="count">0.88 (calibrated P10 of indication-UC distribution)</span></div>
     </div>
     <div class="stats"></div>
   </div>
@@ -463,7 +463,7 @@
   </div>
 
   <div class="step-row">
-    <div class="status status-progress">⟳</div>
+    <div class="status status-done">✓</div>
     <div class="step-info">
       <h3>s02 — Scrape Labels</h3>
       <div class="script">s02_scrape_labels.py</div>
@@ -483,7 +483,7 @@
   </div>
 
   <div class="step-row">
-    <div class="status status-written">✎</div>
+    <div class="status status-done">✓</div>
     <div class="step-info">
       <h3>s03 — Parse Labels</h3>
       <div class="script">s03_parse_labels.py</div>
@@ -524,7 +524,7 @@
   <div class="phase">Phase 2 — Embedding &amp; Similarity <span class="timeline">GPU: RTX 3070 Ti · Model: S-PubMedBert-MS-MARCO (768-dim)</span></div>
 
   <div class="step-row">
-    <div class="status status-progress">⟳</div>
+    <div class="status status-done">✓</div>
     <div class="step-info">
       <h3>s05 — Embed All Texts</h3>
       <div class="script">s05_embed_all.py</div>
@@ -545,7 +545,7 @@
   </div>
 
   <div class="step-row">
-    <div class="status status-written">✎</div>
+    <div class="status status-done">✓</div>
     <div class="step-info">
       <h3>s06 — Three-Way Similarity</h3>
       <div class="script">s06_three_way_similarity.py</div>
@@ -558,7 +558,7 @@
     </div>
     <div class="stats">
       <div class="stat">Max-per-UC claim aggregation</div>
-      <div class="stat">Threshold: 0.3 (to calibrate)</div>
+      <div class="stat">Threshold: 0.88 (calibrated)</div>
       <div class="stat" style="color:#e0af68;">Needs all 3 embeddings</div>
     </div>
   </div>
@@ -567,7 +567,7 @@
   <div class="phase">Phase 3 — Analysis <span class="timeline">Descriptive trends, structural breaks, GAT, case studies</span></div>
 
   <div class="step-row">
-    <div class="status status-written">✎</div>
+    <div class="status status-done">✓</div>
     <div class="step-info">
       <h3>s07A — Temporal Analysis</h3>
       <div class="script">s07_temporal_analysis.py --part A</div>
@@ -585,7 +585,7 @@
   </div>
 
   <div class="step-row">
-    <div class="status status-written">✎</div>
+    <div class="status status-done">✓</div>
     <div class="step-info">
       <h3>s07B — Graph Attention Network</h3>
       <div class="script">s07_temporal_analysis.py --part B</div>
@@ -605,7 +605,7 @@
   </div>
 
   <div class="step-row">
-    <div class="status status-written">✎</div>
+    <div class="status status-done">✓</div>
     <div class="step-info">
       <h3>s08 — Case Studies</h3>
       <div class="script">s08_case_studies.py</div>
@@ -627,7 +627,7 @@
   <div class="phase">Phase 4 — Manuscript <span class="timeline">Target: JAMA Original Investigation</span></div>
 
   <div class="step-row">
-    <div class="status status-written">✎</div>
+    <div class="status status-done">✓</div>
     <div class="step-info">
       <h3>s09 — Figures</h3>
       <div class="script">s09_figures.py</div>
@@ -644,7 +644,7 @@
   </div>
 
   <div class="step-row">
-    <div class="status status-written">✎</div>
+    <div class="status status-done">✓</div>
     <div class="step-info">
       <h3>s10 — Manuscript</h3>
       <div class="script">s10_manuscript.py</div>
