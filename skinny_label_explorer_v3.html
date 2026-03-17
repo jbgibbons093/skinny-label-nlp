@@ -1254,11 +1254,18 @@ function init() {
   // Play button
   document.getElementById('play-btn').addEventListener('click', togglePlay);
 
-  // View toggle
-  document.getElementById('view-simple').addEventListener('click', () => setView('simple'));
-  document.getElementById('view-gat').addEventListener('click', () => setView('gat'));
-  document.getElementById('view-heatmap').addEventListener('click', () => setView('heatmap'));
-  document.getElementById('view-sankey').addEventListener('click', () => setView('sankey'));
+  // View toggle — switch view AND re-render
+  function switchView(view) {
+    setView(view);
+    if (selectedDrug) {
+      const yr = parseInt(document.getElementById('year-slider').value);
+      renderNetwork(selectedDrug, yr);
+    }
+  }
+  document.getElementById('view-simple').addEventListener('click', () => switchView('simple'));
+  document.getElementById('view-gat').addEventListener('click', () => switchView('gat'));
+  document.getElementById('view-heatmap').addEventListener('click', () => switchView('heatmap'));
+  document.getElementById('view-sankey').addEventListener('click', () => switchView('sankey'));
 
   // Sparse threshold slider (for network/sankey edge filtering)
   document.getElementById('sparse-slider').addEventListener('input', e => {
