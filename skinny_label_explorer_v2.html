@@ -133,6 +133,9 @@
           <button id="view-simple" class="active" title="Simple star graph">Simple</button>
           <button id="view-gat" title="Claim-level bipartite graph">GAT</button>
         </div>
+        <label id="dep-toggle" style="display:none; font-size:12px; cursor:pointer; user-select:none;">
+          <input type="checkbox" id="show-dep" checked> Dependent claims
+        </label>
       </div>
       <svg id="network-svg"></svg>
       <div id="pat-legend" class="pat-legend"></div>
@@ -175,6 +178,7 @@ let currentFiltered = null;
 let displayedCount = 0;
 const PAGE_SIZE = 50;
 let currentView = 'simple'; // 'simple' or 'gat'
+let showDepClaims = true;
 let playInterval = null;
 let currentSim = null; // D3 force simulation reference
 
@@ -244,6 +248,15 @@ function init() {
   document.getElementById('view-simple').addEventListener('click', () => setView('simple'));
   document.getElementById('view-gat').addEventListener('click', () => setView('gat'));
 
+  // Dependent claim toggle
+  document.getElementById('show-dep').addEventListener('change', e => {
+    showDepClaims = e.target.checked;
+    if (selectedDrug && currentView === 'gat') {
+      const year = parseInt(document.getElementById('year-slider').value);
+      renderNetwork(selectedDrug, year);
+    }
+  });
+
   // Disable GAT if no network data
   if (!DATA.networks) {
     document.getElementById('view-gat').disabled = true;
@@ -265,6 +278,7 @@ function setView(view) {
   currentView = view;
   document.getElementById('view-simple').classList.toggle('active', view === 'simple');
   document.getElementById('view-gat').classList.toggle('active', view === 'gat');
+  document.getElementById('dep-toggle').style.display = view === 'gat' ? '' : 'none';
 
   // Update legend
   const legend = document.getElementById('net-legend');
@@ -730,8 +744,10 @@ function renderGATNetwork(nda, year) {
     return;
   }
 
-  // Filter edges to active UCs
-  const activeEdges = net.edges.filter(e => activeUCs.has(e.u));
+  // Filter edges to active UCs and claim type
+  const activeEdges = net.edges.filter(e =>
+    activeUCs.has(e.u) && (showDepClaims || e.k !== 'dep')
+  );
 
   // Get claim IDs that appear in active edges
   const activeClaimIds = new Set(activeEdges.map(e => e.c));
