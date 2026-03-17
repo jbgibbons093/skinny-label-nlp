@@ -695,10 +695,10 @@
 
 <!-- Interactive Site -->
 <div class="outputs-section" style="border-top: 1px solid #2a3055; padding-top: 25px; margin-top: 10px;">
-  <h2 style="color: #bb9af7;">Planned Interactive Site <span style="font-size:0.6em; color:#565f89; font-weight:normal;">(post-analysis)</span></h2>
+  <h2 style="color: #bb9af7;">Interactive Explorer <span style="font-size:0.6em; color:#7aa2f7; font-weight:normal;">(v1 LIVE, v2 IN PROGRESS)</span></h2>
   <div style="color: #8b9cc0; font-size: 0.85em; margin-bottom: 15px; line-height: 1.5;">
     GitHub Pages companion to the JAMA paper — explore skinny label evolution interactively.<br>
-    Tech: Static HTML/CSS/JS + D3.js. Data loaded from JSON exports of pipeline outputs.
+    Tech: Static HTML/CSS/JS + D3.js. Data: site_data.json (3 MB) + site_data_gat.json (89 MB, 1M+ claim-UC edges).
   </div>
   <div class="output-grid">
     <div class="output-card" style="border-color: #3b3070;">
@@ -710,8 +710,8 @@
       <div class="fig-desc">Select any NDA — see trap score evolution over time. Annotated text of patent claims, use codes, and label indications. Timeline of patent additions/expirations and label revisions.</div>
     </div>
     <div class="output-card" style="border-color: #3b3070;">
-      <div class="fig-name" style="color: #bb9af7;">Network Visualization</div>
-      <div class="fig-desc">Interactive force-directed graph (D3-force). Nodes = drugs, patents, use codes, indications. Edge thickness = similarity. Timeline slider animates across OB snapshot years.</div>
+      <div class="fig-name" style="color: #bb9af7;">GAT Claim-Level Network (v2)</div>
+      <div class="fig-desc">Claim-UC bipartite graph with 1,013,672 edges. Claims grouped by patent (color-coded), edges colored by trap mechanism. Dep/indep toggle, top-N density control, animated year playback. Planned: Sankey + heatmap views, scrollable SVG, help icons, methods tab.</div>
     </div>
     <div class="output-card" style="border-color: #3b3070;">
       <div class="fig-name" style="color: #bb9af7;">Vascepa Case Study</div>
@@ -725,7 +725,7 @@
 </div>
 
 <div style="text-align:center; margin-top:25px; color:#565f89; font-size:0.75em;">
-  Generated 2026-03-16 (updated) &nbsp;|&nbsp; s01–s04 complete, s02 Phase 2 downloading, s05 partial, s06–s10 code written &nbsp;|&nbsp; 2017–18 gap: filled &nbsp;|&nbsp; Interactive site: planned
+  Generated 2026-03-17 &nbsp;|&nbsp; Pipeline s01–s10 COMPLETE, 23/23 checks passed &nbsp;|&nbsp; GAT explorer v2: 1,924 NDAs, 1M+ edges &nbsp;|&nbsp; Live: jbgibbons093.github.io/skinny-label-nlp/
 </div>
 
 </body>
