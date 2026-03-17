@@ -217,10 +217,6 @@
             <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Scope Gap</div>
           </div>
         </div>
-        <div class="card">
-          <h3>Claim-Indication Distribution <span class="help-icon">?<span class="help-tip">Histogram of mean claim-indication similarity across all NDAs with CI data. The dashed line marks the 0.88 threshold — drugs below it have weak claim-label alignment. Red bars = below threshold. The marker shows the currently selected drug.</span></span></h3>
-          <canvas id="ci-dist-chart" style="width:100%;height:200px;"></canvas>
-        </div>
       </div>
 
       <div class="card">
@@ -282,6 +278,18 @@
       <div class="chart-note" id="drug-note">Hover for year detail. Click a point to move the timeline and network there.</div>
     </div>
 
+    <div class="card">
+      <h3>Cross-Drug Distribution
+        <select id="dist-measure" style="font-size:12px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;margin-left:8px;vertical-align:middle;">
+          <option value="ci">Claim-Indication</option>
+          <option value="cu">Claim-UC</option>
+          <option value="iu">Indication-UC</option>
+          <option value="gap">Scope Gap</option>
+        </select>
+        <span class="help-icon">?<span class="help-tip">Distribution of the selected measure across all NDAs. The dashed vertical line marks 0.88 (the similarity threshold). The red marker shows where the currently selected drug falls. Switch the dropdown to compare distributions across different similarity pairs.</span></span>
+      </h3>
+      <canvas id="ci-dist-chart" style="width:100%;height:180px;"></canvas>
+    </div>
 
     <div class="card" style="position:relative">
       <h3>Claim / Indication / Use Code Explorer: <span id="net-title">-</span>
@@ -1034,11 +1042,11 @@ function setTab(tab) {
   if (tab === 'directory') renderDirectory();
   if (tab === 'aggregate') {
     drawTrendChart();
-    drawCIDistribution();
   }
   if (tab === 'explorer') {
     // Re-sync view state when returning to explorer
     setView(currentView);
+    drawCIDistribution();
     if (selectedDrug) {
       drawDrugChart(selectedDrug);
       const yr = parseInt(document.getElementById('year-slider').value);
@@ -1305,6 +1313,9 @@ function init() {
       renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
     }
   });
+
+  // Distribution measure dropdown
+  document.getElementById('dist-measure').addEventListener('change', drawCIDistribution);
 
   // Top-N per UC control
   document.getElementById('top-n-per-uc').addEventListener('change', () => {
@@ -3098,21 +3109,51 @@ function loadFromURL() {
 // ======================================================================
 function drawCIDistribution() {
   const canvas = document.getElementById('ci-dist-chart');
-  if (!canvas || !CI_INDEX) return;
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = rect.width - 32; canvas.height = 200;
+  canvas.width = rect.width - 32; canvas.height = 180;
   const w = canvas.width, h = canvas.height;
   const pad = { top: 15, right: 15, bottom: 30, left: 40 };
-
   ctx.clearRect(0, 0, w, h);
 
-  const vals = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
-  if (vals.length === 0) return;
+  const measure = document.getElementById('dist-measure')?.value || 'ci';
 
-  // Histogram bins from 0.82 to 1.0
-  const nBins = 18;
-  const binMin = 0.82, binMax = 1.0;
+  // Get values based on selected measure
+  let vals = [], selectedVal = null, label = '', color = '#0072B2';
+  const drug = selectedDrug ? DATA.drugs.find(d => d.nda === selectedDrug) : null;
+
+  if (measure === 'ci') {
+    vals = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
+    selectedVal = selectedDrug && CI_INDEX[selectedDrug] ? CI_INDEX[selectedDrug].ci_mean : null;
+    label = 'Claim-Indication'; color = '#0072B2';
+  } else if (measure === 'cu') {
+    vals = DATA.drugs.map(d => d.claim_uc).filter(v => v != null);
+    selectedVal = drug ? drug.claim_uc : null;
+    label = 'Claim-UC'; color = '#D55E00';
+  } else if (measure === 'iu') {
+    vals = DATA.drugs.map(d => d.ind_uc).filter(v => v != null);
+    selectedVal = drug ? drug.ind_uc : null;
+    label = 'Indication-UC'; color = '#009E73';
+  } else if (measure === 'gap') {
+    vals = DATA.drugs.map(d => d.trap_score).filter(v => v != null);
+    selectedVal = drug ? drug.trap_score : null;
+    label = 'Scope Gap'; color = '#CC79A7';
+  }
+
+  if (vals.length === 0) { ctx.fillStyle = '#999'; ctx.font = '13px Arial'; ctx.textAlign = 'center'; ctx.fillText('No data', w/2, h/2); return; }
+
+  // Auto-range for scope gap (can be negative), fixed for similarities
+  let binMin, binMax, nBins;
+  if (measure === 'gap') {
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    binMin = Math.floor(lo * 100) / 100 - 0.01;
+    binMax = Math.ceil(hi * 100) / 100 + 0.01;
+    nBins = 20;
+  } else {
+    binMin = 0.82; binMax = 1.0; nBins = 18;
+  }
+
   const binW = (binMax - binMin) / nBins;
   const bins = new Array(nBins).fill(0);
   vals.forEach(v => {
@@ -3130,37 +3171,49 @@ function drawCIDistribution() {
     const x = xScale(i);
     const y = yScale(count);
     const bh = h - pad.bottom - y;
-    ctx.fillStyle = (binMin + i * binW) < 0.88 ? '#D55E00' : '#0072B2';
+    if (measure === 'gap') {
+      const binCenter = binMin + (i + 0.5) * binW;
+      ctx.fillStyle = binCenter > 0 ? '#D55E00' : '#009E73';
+    } else {
+      ctx.fillStyle = (binMin + i * binW) < 0.88 ? '#D55E00' : color;
+    }
     ctx.fillRect(x, y, barW, bh);
   });
 
-  // Threshold line at 0.88
-  const tx = xScale((0.88 - binMin) / binW);
-  ctx.beginPath(); ctx.strokeStyle = '#999'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-  ctx.moveTo(tx, pad.top); ctx.lineTo(tx, h - pad.bottom); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = '#999'; ctx.font = '9px Arial'; ctx.textAlign = 'center';
-  ctx.fillText('0.88', tx, h - pad.bottom + 12);
+  // Threshold / zero line
+  if (measure === 'gap') {
+    const zx = xScale((0 - binMin) / binW);
+    ctx.beginPath(); ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.moveTo(zx, pad.top); ctx.lineTo(zx, h - pad.bottom); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#333'; ctx.font = '9px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('0', zx, h - pad.bottom + 12);
+  } else {
+    const tx = xScale((0.88 - binMin) / binW);
+    ctx.beginPath(); ctx.strokeStyle = '#999'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.moveTo(tx, pad.top); ctx.lineTo(tx, h - pad.bottom); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#999'; ctx.font = '9px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('0.88', tx, h - pad.bottom + 12);
+  }
 
   // Selected drug marker
-  if (selectedDrug && CI_INDEX[selectedDrug]) {
-    const sv = CI_INDEX[selectedDrug].ci_mean;
-    const sx = xScale((sv - binMin) / binW);
+  if (selectedVal != null) {
+    const sx = xScale((selectedVal - binMin) / binW);
     ctx.beginPath(); ctx.strokeStyle = '#D55E00'; ctx.lineWidth = 2;
     ctx.moveTo(sx, pad.top); ctx.lineTo(sx, h - pad.bottom); ctx.stroke();
-    ctx.fillStyle = '#D55E00'; ctx.font = 'bold 9px Arial';
+    ctx.fillStyle = '#D55E00'; ctx.font = 'bold 9px Arial'; ctx.textAlign = 'center';
     ctx.fillText('Selected', sx, pad.top - 3);
   }
 
-  // Axes
+  // X axis labels
   ctx.fillStyle = '#666'; ctx.font = '9px Arial'; ctx.textAlign = 'center';
-  for (let v = binMin; v <= binMax; v += 0.04) {
+  const xStep = measure === 'gap' ? 0.02 : 0.04;
+  for (let v = binMin; v <= binMax + 0.001; v += xStep) {
     ctx.fillText(v.toFixed(2), xScale((v - binMin) / binW), h - pad.bottom + 12);
   }
   ctx.textAlign = 'right';
   ctx.fillText(String(maxCount), pad.left - 4, pad.top + 8);
-  ctx.fillText('0', pad.left - 4, h - pad.bottom + 3);
   ctx.font = '10px Arial'; ctx.textAlign = 'left';
-  ctx.fillText(`${vals.length} NDAs`, pad.left, pad.top - 3);
+  ctx.fillText(`${label} | ${vals.length} NDAs`, pad.left, pad.top - 3);
 }
 
 // ======================================================================
