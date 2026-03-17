@@ -198,9 +198,10 @@
       <h3>Selected Drug Overview</h3>
       <div class="detail-grid">
         <div class="detail-stat"><div class="label">Drug</div><div class="value" id="d-name">Select a drug</div><div class="sub" id="d-ingredient">-</div></div>
-        <div class="detail-stat"><div class="label">Scope Gap</div><div class="value" id="d-gap">-</div><div class="sub" id="d-gap-sub">Latest observed year</div></div>
+        <div class="detail-stat"><div class="label">Scope Gap (Claim-UC)</div><div class="value" id="d-gap">-</div><div class="sub" id="d-gap-sub">Latest observed year</div></div>
+        <div class="detail-stat"><div class="label">Claim-Indication</div><div class="value" id="d-ci">-</div><div class="sub" id="d-ci-sub">-</div></div>
         <div class="detail-stat"><div class="label">Use Codes</div><div class="value" id="d-ucs">-</div><div class="sub" id="d-claims">-</div></div>
-        <div class="detail-stat"><div class="label">Interpretation</div><div class="value" id="d-read">-</div><div class="sub" id="d-read-sub">-</div></div>
+        <div class="detail-stat"><div class="label">Orphan Claims</div><div class="value" id="d-orphan">-</div><div class="sub" id="d-orphan-sub">Claims not matching any indication</div></div>
       </div>
     </div>
     <div class="panels">
@@ -246,6 +247,8 @@
             <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="drug-cu">-</span></div>
             <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="drug-iu">-</span></div>
             <div class="snapshot-pill"><span class="label">Scope Gap</span><span class="value" id="drug-gap">-</span></div>
+            <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="drug-ci">-</span></div>
+            <div class="snapshot-pill"><span class="label">Orphan Claims</span><span class="value" id="drug-orphan">-</span></div>
             <div class="snapshot-pill"><span class="label">Use Codes</span><span class="value" id="drug-active-ucs">-</span></div>
             <div class="snapshot-pill"><span class="label">Patents</span><span class="value" id="drug-active-pats">-</span></div>
           </div>
@@ -896,9 +899,17 @@ function updateSelectedOverview(nda) {
   document.getElementById('d-gap').textContent = formatGap(drug.trap_score);
   document.getElementById('d-gap-sub').textContent = `Latest year: ${drug.ob_year ?? 'N/A'}`;
   document.getElementById('d-ucs').textContent = drug.n_use_codes != null ? String(drug.n_use_codes) : '-';
-  document.getElementById('d-claims').textContent = totalClaims != null ? `${totalClaims.toLocaleString()} network claims cached` : 'Claim network loads on demand';
-  document.getElementById('d-read').textContent = read;
-  document.getElementById('d-read-sub').textContent = readSub;
+  document.getElementById('d-claims').textContent = totalClaims != null ? `${totalClaims.toLocaleString()} claims` : 'Loads on demand';
+
+  // Claim-indication stats
+  const ciMean = net ? net.ci_mean : null;
+  const orphanRate = net ? net.orphan_rate : null;
+  document.getElementById('d-ci').textContent = ciMean != null ? ciMean.toFixed(3) : '-';
+  document.getElementById('d-ci-sub').textContent = ciMean != null ? (ciMean >= 0.92 ? 'Strong alignment' : ciMean >= 0.88 ? 'Moderate' : 'Weak') : '-';
+  document.getElementById('d-orphan').textContent = orphanRate != null ? `${(orphanRate * 100).toFixed(0)}%` : '-';
+  document.getElementById('d-orphan-sub').textContent = orphanRate != null
+    ? (orphanRate === 0 ? 'All claims match an indication' : `${Math.round(orphanRate * (totalClaims || 0))} claims with no indication match`)
+    : 'Claims not matching any indication';
 }
 
 function updateSnapshotCards() {
@@ -917,8 +928,9 @@ function updateSnapshotCards() {
 
   if (!selectedDrug) {
     document.getElementById('drug-snapshot-meta').textContent = 'Select a drug to inspect its active year slice.';
-    ['drug-cu', 'drug-iu', 'drug-gap', 'drug-active-ucs', 'drug-active-pats'].forEach(id => {
-      document.getElementById(id).textContent = '-';
+    ['drug-cu', 'drug-iu', 'drug-gap', 'drug-ci', 'drug-orphan', 'drug-active-ucs', 'drug-active-pats'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '-';
     });
     document.getElementById('drug-foot').textContent = 'The year slider, play control, and filters stay in sync.';
     return;
@@ -934,6 +946,14 @@ function updateSnapshotCards() {
   document.getElementById('drug-gap').textContent = row && row.ts != null ? formatGap(row.ts) : '-';
   document.getElementById('drug-active-ucs').textContent = row && row.nuc != null ? row.nuc.toLocaleString() : '-';
   document.getElementById('drug-active-pats').textContent = row && row.np != null ? row.np.toLocaleString() : '-';
+
+  // Claim-indication from cached network
+  const net = networkCache[selectedDrug] || null;
+  const ciEl = document.getElementById('drug-ci');
+  const orphEl = document.getElementById('drug-orphan');
+  if (ciEl) ciEl.textContent = net && net.ci_mean != null ? net.ci_mean.toFixed(3) : '-';
+  if (orphEl) orphEl.textContent = net && net.orphan_rate != null ? `${(net.orphan_rate * 100).toFixed(0)}%` : '-';
+
   document.getElementById('drug-foot').textContent = row
     ? `Year ${row.y} has ${row.nuc ?? '-'} active use codes and ${row.np ?? '-'} patents in the observed Orange Book slice.`
     : 'No timeline data available for this selection.';
