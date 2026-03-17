@@ -168,6 +168,7 @@
       <div class="network-container"><svg id="network-svg"></svg></div>
       <div class="heatmap-container" id="heatmap-wrap" style="display:none"><canvas id="heatmap-canvas"></canvas></div>
       <div id="pat-legend" class="pat-legend"></div>
+      <div id="net-loading" style="display:none;font-size:11px;color:#999;padding:4px 0;"></div>
       <div class="legend" id="net-legend">
         <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Drug</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Use Code</div>
@@ -251,11 +252,19 @@ let selectedDrug = null;
 let currentFiltered = null;
 let displayedCount = 0;
 const PAGE_SIZE = 50;
-let currentView = 'simple'; // 'simple' or 'gat'
+let currentView = 'simple';
 let playInterval = null;
-let currentSim = null; // D3 force simulation reference
+let currentSim = null;
 
-// Patent colors (colorblind-friendly, distinguishable)
+// Network cache: loaded per-drug on demand
+const networkCache = {};
+let networkIndex = null; // {nda: {edges, size}} from index.json
+
+// Performance constants
+const MAX_EDGES_SANKEY = 200;
+const MAX_EDGES_NETWORK = 300;
+const DEFAULT_TOP_N = 10;
+
 const PAT_COLORS = [
   '#0072B2', '#009E73', '#CC79A7', '#56B4E9', '#E69F00',
   '#D55E00', '#8B6914', '#7570B3', '#E7298A', '#66A61E',
@@ -263,42 +272,45 @@ const PAT_COLORS = [
 ];
 
 // ======================================================================
-// Load data
+// Load data (base 3 MB + network index 65 KB, then per-drug on demand)
 // ======================================================================
-// Load base data first (3 MB), then networks (94 MB) in background
-fetch('site_data.json').then(r => r.json()).then(data => {
+Promise.all([
+  fetch('site_data.json').then(r => r.json()),
+  fetch('networks/index.json').then(r => r.json()).catch(() => null),
+]).then(([data, idx]) => {
   DATA = data;
-  DATA.networks = null;
+  networkIndex = idx;
+  console.log('Base data loaded.', idx ? Object.keys(idx).length + ' NDAs in network index' : 'No network index');
   init();
-
-  // Load networks in background
-  const netStatus = document.createElement('div');
-  netStatus.id = 'net-loading';
-  netStatus.style.cssText = 'font-size:11px;color:#999;padding:4px 0;';
-  netStatus.textContent = 'Loading claim-level network data (94 MB)...';
-  document.getElementById('net-legend').after(netStatus);
-
-  fetch('networks.json').then(r => {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
-  }).then(networks => {
-    DATA.networks = networks;
-    console.log('Networks loaded:', Object.keys(networks).length, 'NDAs');
-    const el = document.getElementById('net-loading');
-    if (el) el.textContent = 'Network data loaded (' + Object.keys(networks).length + ' NDAs)';
-    setTimeout(() => { if (el) el.remove(); }, 3000);
-    if (currentView !== 'simple' && selectedDrug) {
-      renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
-    }
-  }).catch(e => {
-    console.warn('Networks load failed:', e.message);
-    const el = document.getElementById('net-loading');
-    if (el) el.textContent = 'Network data unavailable: ' + e.message;
-  });
 }).catch(e => {
   document.querySelector('.content').innerHTML =
     '<div class="card"><p>Error loading data: ' + e.message + '</p></div>';
 });
+
+// Lazy-load network for a single drug
+async function loadNetwork(nda) {
+  if (networkCache[nda]) return networkCache[nda];
+  if (networkCache[nda] === false) return null; // previously failed
+  if (!networkIndex || !networkIndex[nda]) return null;
+
+  const el = document.getElementById('net-loading');
+  const sizeKB = Math.round(networkIndex[nda].size / 1024);
+  if (el) { el.textContent = `Loading network for ${nda} (${sizeKB} KB)...`; el.style.display = ''; }
+
+  try {
+    const r = await fetch(`networks/${nda}.json`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const net = await r.json();
+    networkCache[nda] = net;
+    if (el) { el.style.display = 'none'; }
+    return net;
+  } catch (e) {
+    console.warn(`Network load failed for ${nda}:`, e.message);
+    networkCache[nda] = false;
+    if (el) { el.textContent = `Network unavailable for ${nda}`; }
+    return null;
+  }
+}
 
 // ======================================================================
 // Init
@@ -364,13 +376,12 @@ function init() {
     }
   });
 
-  // Log network data availability
-  const hasNetworks = DATA.networks && Object.keys(DATA.networks).length > 0;
-  console.log('Network data:', hasNetworks ? Object.keys(DATA.networks).length + ' NDAs' : 'NOT AVAILABLE');
-  if (!hasNetworks) {
+  // Log network index availability
+  console.log('Network index:', networkIndex ? Object.keys(networkIndex).length + ' NDAs available for lazy loading' : 'NOT LOADED');
+  if (!networkIndex) {
     ['view-gat', 'view-heatmap', 'view-sankey'].forEach(id => {
       const btn = document.getElementById(id);
-      if (btn) btn.title += ' (data not loaded — try refreshing)';
+      if (btn) btn.title += ' (network index not loaded)';
     });
   }
 
@@ -391,7 +402,7 @@ function setView(view) {
     if (btn) btn.classList.toggle('active', view === v);
   });
   const isAdvanced = view !== 'simple';
-  document.getElementById('density-control').style.display = view === 'gat' ? '' : 'none';
+  document.getElementById('density-control').style.display = (view === 'gat') ? '' : 'none';
   document.getElementById('uc-filter').style.display = isAdvanced ? '' : 'none';
 
   // Show/hide SVG vs heatmap canvas
@@ -723,37 +734,51 @@ function getUCFilter() {
   return f || null;
 }
 
+// Throttle: skip renders if called faster than interval
+let _renderTimer = null;
 function renderNetwork(nda, year) {
+  if (_renderTimer) clearTimeout(_renderTimer);
+  _renderTimer = setTimeout(() => _doRender(nda, year), currentView === 'simple' ? 0 : 50);
+}
+
+async function _doRender(nda, year) {
   if (currentSim) { currentSim.stop(); currentSim = null; }
 
-  const hasNet = DATA.networks && DATA.networks[nda];
+  if (currentView === 'simple') {
+    renderSimpleNetwork(nda, year);
+    return;
+  }
 
-  if (currentView !== 'simple' && !hasNet) {
-    // Show fallback message for advanced views without network data
+  // Lazy-load network for this drug
+  const net = await loadNetwork(nda);
+
+  if (!net) {
     const svg = d3.select('#network-svg');
     svg.selectAll('*').remove();
     const rect = svg.node().getBoundingClientRect();
     svg.attr('viewBox', `0 0 ${rect.width} 400`);
-    svg.append('text').attr('x', rect.width / 2).attr('y', 180).attr('text-anchor', 'middle')
-      .attr('fill', '#999').attr('font-size', '14px')
-      .text('Claim-level network data unavailable for this NDA.');
-    svg.append('text').attr('x', rect.width / 2).attr('y', 205).attr('text-anchor', 'middle')
-      .attr('fill', '#bbb').attr('font-size', '12px')
-      .text(DATA.networks ? 'This drug is not in the network dataset (42 NDAs excluded).' : 'Network data is still loading...');
+    const inIndex = networkIndex && networkIndex[nda];
+    const msg = inIndex === undefined
+      ? 'Claim-level network data unavailable for this NDA (42 NDAs excluded).'
+      : networkIndex ? 'Failed to load network data for this drug.' : 'Network index not loaded.';
+    svg.append('text').attr('x', rect.width / 2).attr('y', 190).attr('text-anchor', 'middle')
+      .attr('fill', '#999').attr('font-size', '13px').text(msg);
     document.getElementById('pat-legend').innerHTML = '';
     document.getElementById('heatmap-wrap').style.display = 'none';
     document.querySelector('.network-container').style.display = '';
     return;
   }
 
-  if (currentView === 'heatmap' && hasNet) {
-    renderHeatmap(nda, year);
-  } else if (currentView === 'sankey' && hasNet) {
-    renderSankey(nda, year);
-  } else if (currentView === 'gat' && hasNet) {
-    renderGATNetwork(nda, year);
-  } else {
-    renderSimpleNetwork(nda, year);
+  // Check edge count and warn for heavy drugs
+  const edgeInfo = networkIndex[nda];
+  const isHeavy = edgeInfo && edgeInfo.edges > 500;
+
+  if (currentView === 'heatmap') {
+    renderHeatmap(nda, year, net);
+  } else if (currentView === 'sankey') {
+    renderSankey(nda, year, net, isHeavy);
+  } else if (currentView === 'gat') {
+    renderGATNetwork(nda, year, net, isHeavy);
   }
 }
 
@@ -866,13 +891,11 @@ function renderSimpleNetwork(nda, year) {
 // ======================================================================
 // GAT network (bipartite: claims <-> use codes)
 // ======================================================================
-function renderGATNetwork(nda, year) {
+function renderGATNetwork(nda, year, net, isHeavy) {
   const svg = d3.select('#network-svg');
   svg.selectAll('*').remove();
   const rect = svg.node().getBoundingClientRect();
   const w = rect.width;
-
-  const net = DATA.networks[nda];
   const tl = DATA.timelines[nda];
   const drug = DATA.drugs.find(d => d.nda === nda);
   const drugName = drug ? drug.name : nda;
@@ -905,23 +928,31 @@ function renderGATNetwork(nda, year) {
     return;
   }
 
-  // Filter edges: active UCs, claim type, UC filter, then top-N per UC
-  const topN = parseInt(document.getElementById('top-n-per-uc').value) || 20;
+  // Filter edges: active UCs, UC filter, then top-N per UC
+  const topNInput = parseInt(document.getElementById('top-n-per-uc').value);
+  const topN = isHeavy && isNaN(topNInput) ? DEFAULT_TOP_N : (topNInput || DEFAULT_TOP_N);
   const ucFilter = getUCFilter();
   let filteredEdges = net.edges.filter(e => {
     if (!activeUCs.has(e.u)) return false;
-
     if (ucFilter && !e.u.toUpperCase().includes(ucFilter)) return false;
     return true;
   });
 
-  // Apply top-N per UC (sort by sim descending, keep top N for each UC)
+  // Apply top-N per UC
   const byUC = {};
   filteredEdges.forEach(e => { (byUC[e.u] = byUC[e.u] || []).push(e); });
-  const activeEdges = [];
+  let activeEdges = [];
+  let wasCapped = false;
   for (const uc in byUC) {
     byUC[uc].sort((a, b) => b.s - a.s);
+    if (byUC[uc].length > topN) wasCapped = true;
     activeEdges.push(...byUC[uc].slice(0, topN));
+  }
+  // Hard cap for SVG performance
+  if (activeEdges.length > MAX_EDGES_NETWORK) {
+    activeEdges.sort((a, b) => b.s - a.s);
+    activeEdges = activeEdges.slice(0, MAX_EDGES_NETWORK);
+    wasCapped = true;
   }
 
   // Get claim IDs that appear in active edges
@@ -1182,6 +1213,11 @@ function renderGATNetwork(nda, year) {
   svg.append('text').attr('x', w - 12).attr('y', 56).attr('text-anchor', 'end')
     .attr('font-size', '11px').attr('fill', '#999')
     .text(`${activeEdges.length} edges | ${activePatents.length} patents`);
+  if (wasCapped) {
+    svg.append('text').attr('x', w - 12).attr('y', 72).attr('text-anchor', 'end')
+      .attr('font-size', '10px').attr('fill', '#e0af68')
+      .text(`Showing top ${topN}/UC (${MAX_EDGES_NETWORK} max) — increase Top N for more`);
+  }
 
   // Tick handler
   sim.on('tick', () => {
@@ -1238,14 +1274,12 @@ function renderGATNetwork(nda, year) {
 // ======================================================================
 // Sankey view (Patent → Claims → Use Codes flow)
 // ======================================================================
-function renderSankey(nda, year) {
+function renderSankey(nda, year, net, isHeavy) {
   const svg = d3.select('#network-svg');
   svg.selectAll('*').remove();
   document.getElementById('pat-legend').innerHTML = '';
   const rect = svg.node().getBoundingClientRect();
   const w = rect.width;
-
-  const net = DATA.networks[nda];
   const tl = DATA.timelines[nda];
   const drug = DATA.drugs.find(d => d.nda === nda);
   const drugName = drug ? drug.name : nda;
@@ -1261,10 +1295,17 @@ function renderSankey(nda, year) {
   const ucFilter = getUCFilter();
   let filteredEdges = net.edges.filter(e => {
     if (!activeUCs.has(e.u)) return false;
-
     if (ucFilter && !e.u.toUpperCase().includes(ucFilter)) return false;
     return true;
   });
+
+  // Cap edges for Sankey SVG performance
+  let sankeyCapped = false;
+  if (filteredEdges.length > MAX_EDGES_SANKEY) {
+    filteredEdges.sort((a, b) => b.s - a.s);
+    filteredEdges = filteredEdges.slice(0, MAX_EDGES_SANKEY);
+    sankeyCapped = true;
+  }
 
   // Group: Patent → Claims, Claim → UCs
   const claimIds = [...new Set(filteredEdges.map(e => e.c))];
@@ -1336,6 +1377,11 @@ function renderSankey(nda, year) {
   svg.append('text').attr('x', w/2).attr('y', 22).attr('text-anchor', 'middle')
     .attr('font-size', '14px').attr('font-weight', '700').attr('fill', '#1a365d')
     .text(`${drugName} — ${best.y}`);
+  if (sankeyCapped) {
+    svg.append('text').attr('x', w/2).attr('y', 38).attr('text-anchor', 'middle')
+      .attr('font-size', '10px').attr('fill', '#e0af68')
+      .text(`Showing top ${MAX_EDGES_SANKEY} edges by similarity (reduced for performance)`);
+  }
 
   // Draw flows: Patent → Claim
   const flowG = svg.append('g').attr('opacity', 0.3);
@@ -1433,11 +1479,9 @@ function renderSankey(nda, year) {
 // ======================================================================
 // Heatmap view (claims x use codes matrix)
 // ======================================================================
-function renderHeatmap(nda, year) {
+function renderHeatmap(nda, year, net) {
   const svg = d3.select('#network-svg');
   svg.selectAll('*').remove();
-
-  const net = DATA.networks[nda];
   const tl = DATA.timelines[nda];
   const drug = DATA.drugs.find(d => d.nda === nda);
   const drugName = drug ? drug.name : nda;
