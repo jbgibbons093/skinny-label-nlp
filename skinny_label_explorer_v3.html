@@ -2247,17 +2247,13 @@ function renderGATNetwork(nda, year, net, isHeavy) {
     .attr('font-size', '11px').attr('fill', '#999')
     .text(`${activeEdges.length} edges | ${activePatents.length} patents`);
   document.getElementById('filter-summary').textContent =
-    `CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | orphan ${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'} | ${activePatents.length} patents | ${totalClaims} claims | ${activeUCData.length} UCs | ${activeEdges.length} edges${wasCapped ? ' | reduced for performance' : ''}`;
+    `CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | ${activePatents.length} patents | ${totalClaims} claims | ${activeUCData.length} UCs | ${activeEdges.length} edges${wasCapped ? ' | capped at ' + MAX_EDGES_NETWORK + ' (increase Top N for more)' : ''}`;
   if (ciStats.ci_mean != null) {
     svg.append('text').attr('x', w - 12).attr('y', 72).attr('text-anchor', 'end')
       .attr('font-size', '11px').attr('fill', '#0f766e')
       .text(`Claim-Ind ${ciStats.ci_mean.toFixed(3)} | orphan ${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'}`);
   }
-  if (wasCapped) {
-    svg.append('text').attr('x', w - 12).attr('y', ciStats.ci_mean != null ? 88 : 72).attr('text-anchor', 'end')
-      .attr('font-size', '10px').attr('fill', '#e0af68')
-      .text(`Showing top ${topN}/UC (${MAX_EDGES_NETWORK} max) — increase Top N for more`);
-  }
+  // Capped notice goes in filter-summary (not inside SVG where it gets clipped)
 
   // Tick handler
   sim.on('tick', () => {
@@ -2420,13 +2416,8 @@ function renderSankey(nda, year, net, isHeavy) {
   svg.append('text').attr('x', w/2).attr('y', 22).attr('text-anchor', 'middle')
     .attr('font-size', '14px').attr('font-weight', '700').attr('fill', '#1a365d')
     .text(`${drugName} — ${best.y}`);
-  if (sankeyCapped) {
-    svg.append('text').attr('x', w/2).attr('y', 38).attr('text-anchor', 'middle')
-      .attr('font-size', '10px').attr('fill', '#e0af68')
-      .text(`Showing top ${sankeyCap} edges by similarity (reduced for performance)`);
-  }
   document.getElementById('filter-summary').textContent =
-    `CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | orphan ${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'} | ${patents.length} patents | ${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} Sankey links${sankeyCapped ? ' | reduced for performance' : ''}`;
+    `CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | ${patents.length} patents | ${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} Sankey links${sankeyCapped ? ' | capped at ' + MAX_EDGES_SANKEY : ''}`;
 
   // Draw flows: Patent → Claim
   const flowG = svg.append('g').attr('opacity', 0.3);
