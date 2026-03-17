@@ -327,9 +327,9 @@
       <span style="position:absolute; top:-16px; left:0; font-size:0.7em; color:#7dcfff;">1985</span>
       <span style="position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); font-size:0.65em; color:#3a5575;">NBER (31 editions)</span>
     </div>
-    <!-- Gap fill -->
-    <div style="flex:2; height:10px; background:#e0af68; position:relative;">
-      <span style="position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); font-size:0.6em; color:#e0af68; white-space:nowrap;">2017–18 gap fill</span>
+    <!-- Gap fill (resolved) -->
+    <div style="flex:2; height:10px; background:linear-gradient(90deg, #3a5575, #2a5540); position:relative;">
+      <span style="position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); font-size:0.6em; color:#9ece6a; white-space:nowrap;">2017–18 ✓ filled</span>
     </div>
     <!-- Modern OB -->
     <div style="flex:6; height:10px; background:linear-gradient(90deg, #2a5540, #3a7560); border-radius:0 5px 5px 0; position:relative;">
@@ -368,7 +368,7 @@
     </div>
     <div class="source">
       <div class="name">Drugs@FDA API</div>
-      <div class="detail">Label PDFs for all 2,927 NDAs<br>12,784+ documents</div>
+      <div class="detail">Label PDFs for 2,532 NDAs<br>19,841 documents</div>
       <div class="years">1998–2026</div>
     </div>
   </div>
@@ -455,15 +455,15 @@
       <div class="desc">Query Drugs@FDA API for every NDA, download all label PDFs. DailyMed XML fallback for missing NDAs.</div>
     </div>
     <div class="artifacts">
-      <div class="artifact">label_manifest.csv <span class="count">12,784 rows (initial)</span></div>
-      <div class="artifact">Data/raw/labels/{NDA}/*.pdf <span class="count">12,751 PDFs</span></div>
-      <div class="artifact">api_cache/{NDA}.json <span class="count">1,737 cached</span></div>
+      <div class="artifact">label_manifest.csv <span class="count">19,841 docs</span></div>
+      <div class="artifact">Data/raw/labels/{NDA}/*.pdf <span class="count">12,741 + downloading</span></div>
+      <div class="artifact">api_cache/{NDA}.json <span class="count">2,927 cached</span></div>
     </div>
     <div class="stats">
-      <div class="stat"><span class="val">1,686</span> NDAs scraped (initial)</div>
-      <div class="stat"><span class="val">1,239</span> NDAs queuing (expanded)</div>
-      <div class="stat"><span class="val">99.7%</span> download success rate</div>
-      <div class="stat" style="color:#e0af68;">Expanding to full 2,927 NDAs</div>
+      <div class="stat"><span class="val">2,532</span> NDAs with labels</div>
+      <div class="stat"><span class="val">290</span> NDAs no labels (pre-1998)</div>
+      <div class="stat"><span class="val">105</span> API failures</div>
+      <div class="stat" style="color:#e0af68;">Phase 2: downloading ~7,100 new PDFs</div>
     </div>
   </div>
 
@@ -710,7 +710,7 @@
 </div>
 
 <div style="text-align:center; margin-top:25px; color:#565f89; font-size:0.75em;">
-  Generated 2026-03-16 &nbsp;|&nbsp; Pipeline version: s01–s04 complete, s05–s06 in progress, s07–s10 planned &nbsp;|&nbsp; Interactive site: planned
+  Generated 2026-03-16 (updated) &nbsp;|&nbsp; s01–s04 complete, s02 Phase 2 downloading, s05 partial, s06 code written, s07–s10 planned &nbsp;|&nbsp; 2017–18 gap: filled &nbsp;|&nbsp; Interactive site: planned
 </div>
 
 </body>
