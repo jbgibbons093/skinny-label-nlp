@@ -196,8 +196,7 @@
         <button class="active" data-tab="explorer" id="tab-explorer">Explorer</button>
         <button data-tab="aggregate" id="tab-aggregate">Aggregate</button>
         <button data-tab="directory" id="tab-directory">Drug Directory</button>
-        <button data-tab="methods" id="tab-methods">Model Architecture</button>
-        <button data-tab="context" id="tab-context">Interpretation & Context</button>
+        <button data-tab="about" id="tab-about">About & Methods</button>
       </div>
     </div>
 
@@ -275,6 +274,12 @@
         <span class="help-icon">?<span class="help-tip">Year-by-year use-code relationships. Red = Claim-UC, Green = Ind-UC, Purple dashed = Scope Gap. The blue dashed horizontal line shows this drug's claim-indication mean.</span></span>
       </h3>
       <canvas id="drug-chart"></canvas>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Claim-UC</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Ind-UC</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Claim-Ind</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Scope Gap</div>
+      </div>
       <div class="chart-note" id="drug-note">Hover for year detail. Click a point to move the timeline and network there.</div>
     </div>
 
@@ -546,7 +551,7 @@
       </div>
     </div>
 
-    <div class="tab-panel" id="panel-methods">
+    <div class="tab-panel" id="panel-about">
       <div class="card">
         <h3>Pipeline Overview</h3>
         <p class="info-text">This analysis measures how closely pharmaceutical patent claims align with approved drug indications and Orange Book use codes. The pipeline processes three types of regulatory text through a shared semantic embedding space, enabling direct quantitative comparison of documents that are normally analyzed only by legal experts.</p>
@@ -603,9 +608,7 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="tab-panel" id="panel-context">
       <div class="info-grid">
         <div class="stack">
           <div class="card">
@@ -1616,9 +1619,9 @@ function drawTrendChart() {
       const avgCI = ciVals.reduce((a, b) => a + b, 0) / ciVals.length;
       if (avgCI >= yMin && avgCI <= yMax) {
         const ciY = yScale(avgCI);
-        ctx.beginPath(); ctx.strokeStyle = '#0072B2'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+        ctx.beginPath(); ctx.strokeStyle = '#0072B2'; ctx.lineWidth = 2;
         ctx.moveTo(pad.left, ciY); ctx.lineTo(w - pad.right, ciY);
-        ctx.stroke(); ctx.setLineDash([]);
+        ctx.stroke();
         ctx.fillStyle = '#0072B2'; ctx.font = '10px Arial'; ctx.textAlign = 'right';
         ctx.fillText(`Claim-Ind avg ${avgCI.toFixed(3)}`, w - pad.right, ciY - 4);
       }
@@ -1628,13 +1631,13 @@ function drawTrendChart() {
   // Trap on right axis
   const tMin = -0.01, tMax = 0.03;
   const tScale = v => pad.top + (1 - (v - tMin) / (tMax - tMin)) * (h - pad.top - pad.bottom);
-  ctx.beginPath(); ctx.strokeStyle = '#CC79A7'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.strokeStyle = '#CC79A7'; ctx.lineWidth = 1.5;
   trapMean.forEach((v, i) => {
     if (v === 0 && i > 0) return;
     const x = xScale(i), y = tScale(v);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
-  ctx.stroke(); ctx.setLineDash([]);
+  ctx.stroke();
 
   // Legal landmarks
   [2021, 2024].forEach(yr => {
@@ -1780,15 +1783,15 @@ function drawDrugChart(nda) {
 
   drawLine(cu, '#D55E00', false, yScale);
   drawLine(iu, '#009E73', false, yScale);
-  drawLine(trap, '#CC79A7', true, tScale);
+  drawLine(trap, '#CC79A7', false, tScale);
 
   // Claim-Indication horizontal reference line (static — not per-year)
   const ciStats = getCIStats(nda);
   if (ciStats.ci_mean != null && ciStats.ci_mean >= yMin && ciStats.ci_mean <= yMax) {
     const ciY = yScale(ciStats.ci_mean);
-    ctx.beginPath(); ctx.strokeStyle = '#0072B2'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.strokeStyle = '#0072B2'; ctx.lineWidth = 2;
     ctx.moveTo(pad2.left, ciY); ctx.lineTo(w - pad2.right, ciY);
-    ctx.stroke(); ctx.setLineDash([]);
+    ctx.stroke();
     ctx.fillStyle = '#0072B2'; ctx.font = '10px Arial'; ctx.textAlign = 'left';
     ctx.fillText(`CI ${ciStats.ci_mean.toFixed(3)}`, pad2.left + 4, ciY - 4);
   }
