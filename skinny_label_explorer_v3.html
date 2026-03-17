@@ -813,8 +813,10 @@ function refreshAdvancedFilterUI(nda, year, net) {
   advancedFilters.useCodes = new Set([...advancedFilters.useCodes].filter(v => ctx.useCodes.includes(v)));
   advancedFilters.patents = new Set([...advancedFilters.patents].filter(v => ctx.patents.includes(v)));
 
-  document.getElementById('claim-kind-filter').value = advancedFilters.claimKind;
-  document.getElementById('ci-status-filter').value = advancedFilters.ciStatus;
+  const ckf = document.getElementById('claim-kind-filter');
+  if (ckf) ckf.value = advancedFilters.claimKind;
+  const csf = document.getElementById('ci-status-filter');
+  if (csf) csf.value = advancedFilters.ciStatus;
   renderFilterOptions('uc-filter-options', ctx.useCodes, advancedFilters.useCodes, advancedFilters.ucQuery);
   renderFilterOptions('patent-filter-options', ctx.patents, advancedFilters.patents, advancedFilters.patentQuery, v => `Patent ${v}`);
   updateFilterButtonLabel('uc-filter-btn', 'Use Codes', advancedFilters.useCodes.size, ctx.useCodes.length);
@@ -835,7 +837,7 @@ function closeFilterPopovers() {
 }
 
 function setupAdvancedFilters() {
-  const claimKind = document.getElementById('claim-kind-filter');
+  const claimKind = document.getElementById('claim-kind-filter'); // may be null (removed)
   const ciStatus = document.getElementById('ci-status-filter');
   const ucBtn = document.getElementById('uc-filter-btn');
   const patBtn = document.getElementById('patent-filter-btn');
@@ -844,11 +846,11 @@ function setupAdvancedFilters() {
   const ucSearch = document.getElementById('uc-filter-search');
   const patSearch = document.getElementById('patent-filter-search');
 
-  claimKind.addEventListener('change', () => {
+  if (claimKind) claimKind.addEventListener('change', () => {
     advancedFilters.claimKind = claimKind.value;
     if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
   });
-  ciStatus.addEventListener('change', () => {
+  if (ciStatus) ciStatus.addEventListener('change', () => {
     advancedFilters.ciStatus = ciStatus.value;
     if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
   });
@@ -1039,33 +1041,7 @@ function updateSnapshotCards() {
     ? `Mean claim-indication across indexed NDAs is ${aggCiMean != null ? aggCiMean.toFixed(3) : 'N/A'}; the year chart remains use-code based for ${agg.y}.`
     : 'Temporal trends are interactive: click a year to sync the explorer below.';
 
-  if (!selectedDrug) {
-    document.getElementById('drug-snapshot-meta').textContent = 'Select a drug to inspect its active year slice.';
-    ['drug-ci', 'drug-orphan', 'drug-cu', 'drug-iu', 'drug-gap', 'drug-active-ucs', 'drug-active-pats'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = '-';
-    });
-    document.getElementById('drug-foot').textContent = 'The year slider, play control, and filters stay in sync.';
-    return;
-  }
-
-  const row = getClosestTimelineEntry(selectedDrug, sliderYear);
-  const drug = DATA.drugs.find(d => d.nda === selectedDrug);
-  document.getElementById('drug-snapshot-meta').textContent = row
-    ? `${drug ? drug.name : selectedDrug} | year ${row.y}`
-    : `${drug ? drug.name : selectedDrug}`;
-  const ciStats = getCIStats(selectedDrug);
-  document.getElementById('drug-ci').textContent = ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : '-';
-  document.getElementById('drug-orphan').textContent = ciStats.orphan_rate != null ? `${(ciStats.orphan_rate * 100).toFixed(0)}%` : '-';
-  document.getElementById('drug-cu').textContent = row && row.cu != null ? row.cu.toFixed(3) : '-';
-  document.getElementById('drug-iu').textContent = row && row.iu != null ? row.iu.toFixed(3) : '-';
-  document.getElementById('drug-gap').textContent = row && row.ts != null ? formatGap(row.ts) : '-';
-  document.getElementById('drug-active-ucs').textContent = row && row.nuc != null ? row.nuc.toLocaleString() : '-';
-  document.getElementById('drug-active-pats').textContent = row && row.np != null ? row.np.toLocaleString() : '-';
-
-  document.getElementById('drug-foot').textContent = row
-    ? `Claim-indication stays headline for this drug (${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'}), while the year slider shows its changing use-code context in ${row.y}.`
-    : 'No timeline data available for this selection.';
+  // Drug-year snapshot removed — info now in Selected Drug Overview
 }
 
 function renderDirectory() {
