@@ -495,16 +495,16 @@
           <table class="directory-table">
             <thead>
               <tr>
-                <th>Drug</th>
-                <th>Ingredient / keyword</th>
-                <th>Claim-Ind</th>
-                <th>Use codes</th>
-                <th>Orphan %</th>
-                <th>Claim-UC</th>
-                <th>Ind-UC</th>
-                <th>Year</th>
+                <th class="sortable" data-sort="name_asc" style="cursor:pointer;">Drug</th>
+                <th>Ingredient</th>
+                <th class="sortable" data-sort="ci_desc" style="cursor:pointer;">Claim-Ind &#x25BE;</th>
+                <th class="sortable" data-sort="uc_desc" style="cursor:pointer;">Use codes</th>
+                <th class="sortable" data-sort="orphan_desc" style="cursor:pointer;">Orphan %</th>
+                <th class="sortable" data-sort="cu_desc" style="cursor:pointer;">Claim-UC</th>
+                <th class="sortable" data-sort="iu_desc" style="cursor:pointer;">Ind-UC</th>
+                <th class="sortable" data-sort="year_desc" style="cursor:pointer;">Year</th>
                 <th>Network</th>
-                <th>Edges</th>
+                <th class="sortable" data-sort="edge_desc" style="cursor:pointer;">Edges</th>
                 <th>Open</th>
               </tr>
             </thead>
@@ -983,12 +983,39 @@ function setTab(tab) {
   }
 }
 
+let directorySortKey = 'ci_desc';
+
 function setupDirectoryControls() {
   ['dir-search', 'dir-family', 'dir-gap-sign', 'dir-usecodes', 'dir-sort', 'dir-network', 'dir-complexity', 'dir-ingredient'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input', renderDirectory);
     el.addEventListener('change', renderDirectory);
+  });
+
+  // Click-to-sort on table headers
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const sortKey = th.dataset.sort;
+      // Toggle ascending/descending
+      if (directorySortKey === sortKey) {
+        directorySortKey = sortKey.endsWith('_desc') ? sortKey.replace('_desc', '_asc') : sortKey.replace('_asc', '_desc');
+      } else {
+        directorySortKey = sortKey;
+      }
+      // Update the dropdown to match
+      const sel = document.getElementById('dir-sort');
+      if (sel) {
+        const opt = [...sel.options].find(o => o.value === directorySortKey);
+        if (opt) sel.value = directorySortKey;
+      }
+      // Update header indicators
+      document.querySelectorAll('th.sortable').forEach(h => {
+        h.textContent = h.textContent.replace(/[\u25BE\u25B4]/g, '').trim();
+      });
+      th.textContent += directorySortKey.endsWith('_desc') ? ' \u25BE' : ' \u25B4';
+      renderDirectory();
+    });
   });
 }
 
@@ -1059,7 +1086,7 @@ function renderDirectory() {
   const ingredientQ = (document.getElementById('dir-ingredient')?.value || '').trim().toLowerCase();
   const gapSign = document.getElementById('dir-gap-sign')?.value || 'all';
   const ucMin = document.getElementById('dir-usecodes')?.value || 'all';
-  const sort = document.getElementById('dir-sort')?.value || 'ci_desc';
+  const sort = directorySortKey || document.getElementById('dir-sort')?.value || 'ci_desc';
   const networkFilter = document.getElementById('dir-network')?.value || 'all';
   const complexity = document.getElementById('dir-complexity')?.value || 'all';
 
@@ -1088,9 +1115,19 @@ function renderDirectory() {
     if (sort === 'ci_desc') return nullLow(getCIStats(b.nda).ci_mean) - nullLow(getCIStats(a.nda).ci_mean);
     if (sort === 'ci_asc') return nullHigh(getCIStats(a.nda).ci_mean) - nullHigh(getCIStats(b.nda).ci_mean);
     if (sort === 'edge_desc') return (getNetworkMeta(b.nda).edges || 0) - (getNetworkMeta(a.nda).edges || 0);
+    if (sort === 'edge_asc') return (getNetworkMeta(a.nda).edges || 0) - (getNetworkMeta(b.nda).edges || 0);
     if (sort === 'uc_desc') return (b.n_use_codes || 0) - (a.n_use_codes || 0);
+    if (sort === 'uc_asc') return (a.n_use_codes || 0) - (b.n_use_codes || 0);
     if (sort === 'name_asc') return (a.name || '').localeCompare(b.name || '');
+    if (sort === 'name_desc') return (b.name || '').localeCompare(a.name || '');
     if (sort === 'year_desc') return (b.ob_year || 0) - (a.ob_year || 0);
+    if (sort === 'year_asc') return (a.ob_year || 0) - (b.ob_year || 0);
+    if (sort === 'orphan_desc') return nullLow(getCIStats(b.nda).orphan_rate) - nullLow(getCIStats(a.nda).orphan_rate);
+    if (sort === 'orphan_asc') return nullHigh(getCIStats(a.nda).orphan_rate) - nullHigh(getCIStats(b.nda).orphan_rate);
+    if (sort === 'cu_desc') return nullLow(b.claim_uc) - nullLow(a.claim_uc);
+    if (sort === 'cu_asc') return nullHigh(a.claim_uc) - nullHigh(b.claim_uc);
+    if (sort === 'iu_desc') return nullLow(b.ind_uc) - nullLow(a.ind_uc);
+    if (sort === 'iu_asc') return nullHigh(a.ind_uc) - nullHigh(b.ind_uc);
     return 0;
   });
 
