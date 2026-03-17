@@ -136,6 +136,9 @@
         <label id="dep-toggle" style="display:none; font-size:12px; cursor:pointer; user-select:none;">
           <input type="checkbox" id="show-dep" checked> Dependent claims
         </label>
+        <label id="density-control" style="display:none; font-size:12px; white-space:nowrap;">
+          Top <input type="number" id="top-n-per-uc" value="20" min="1" max="999" style="width:48px; font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:4px;"> per UC
+        </label>
       </div>
       <svg id="network-svg"></svg>
       <div id="pat-legend" class="pat-legend"></div>
@@ -257,6 +260,14 @@ function init() {
     }
   });
 
+  // Top-N per UC control
+  document.getElementById('top-n-per-uc').addEventListener('change', () => {
+    if (selectedDrug && currentView === 'gat') {
+      const year = parseInt(document.getElementById('year-slider').value);
+      renderNetwork(selectedDrug, year);
+    }
+  });
+
   // Disable GAT if no network data
   if (!DATA.networks) {
     document.getElementById('view-gat').disabled = true;
@@ -279,6 +290,7 @@ function setView(view) {
   document.getElementById('view-simple').classList.toggle('active', view === 'simple');
   document.getElementById('view-gat').classList.toggle('active', view === 'gat');
   document.getElementById('dep-toggle').style.display = view === 'gat' ? '' : 'none';
+  document.getElementById('density-control').style.display = view === 'gat' ? '' : 'none';
 
   // Update legend
   const legend = document.getElementById('net-legend');
@@ -744,10 +756,20 @@ function renderGATNetwork(nda, year) {
     return;
   }
 
-  // Filter edges to active UCs and claim type
-  const activeEdges = net.edges.filter(e =>
+  // Filter edges: active UCs, claim type, then top-N per UC
+  const topN = parseInt(document.getElementById('top-n-per-uc').value) || 20;
+  let filteredEdges = net.edges.filter(e =>
     activeUCs.has(e.u) && (showDepClaims || e.k !== 'dep')
   );
+
+  // Apply top-N per UC (sort by sim descending, keep top N for each UC)
+  const byUC = {};
+  filteredEdges.forEach(e => { (byUC[e.u] = byUC[e.u] || []).push(e); });
+  const activeEdges = [];
+  for (const uc in byUC) {
+    byUC[uc].sort((a, b) => b.s - a.s);
+    activeEdges.push(...byUC[uc].slice(0, topN));
+  }
 
   // Get claim IDs that appear in active edges
   const activeClaimIds = new Set(activeEdges.map(e => e.c));
