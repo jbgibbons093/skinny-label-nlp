@@ -678,8 +678,39 @@
   </div>
 </div>
 
+<!-- Interactive Site -->
+<div class="outputs-section" style="border-top: 1px solid #2a3055; padding-top: 25px; margin-top: 10px;">
+  <h2 style="color: #bb9af7;">Planned Interactive Site <span style="font-size:0.6em; color:#565f89; font-weight:normal;">(post-analysis)</span></h2>
+  <div style="color: #8b9cc0; font-size: 0.85em; margin-bottom: 15px; line-height: 1.5;">
+    GitHub Pages companion to the JAMA paper — explore skinny label evolution interactively.<br>
+    Tech: Static HTML/CSS/JS + D3.js. Data loaded from JSON exports of pipeline outputs.
+  </div>
+  <div class="output-grid">
+    <div class="output-card" style="border-color: #3b3070;">
+      <div class="fig-name" style="color: #bb9af7;">Overview Dashboard</div>
+      <div class="fig-desc">Aggregate trends in all three similarity scores and trap scores across the full 1998–2024 cohort. D3 line charts with confidence bands. Treatment vs. control comparison.</div>
+    </div>
+    <div class="output-card" style="border-color: #3b3070;">
+      <div class="fig-name" style="color: #bb9af7;">Drug Explorer</div>
+      <div class="fig-desc">Select any NDA — see trap score evolution over time. Annotated text of patent claims, use codes, and label indications. Timeline of patent additions/expirations and label revisions.</div>
+    </div>
+    <div class="output-card" style="border-color: #3b3070;">
+      <div class="fig-name" style="color: #bb9af7;">Network Visualization</div>
+      <div class="fig-desc">Interactive force-directed graph (D3-force). Nodes = drugs, patents, use codes, indications. Edge thickness = similarity. Timeline slider animates across OB snapshot years.</div>
+    </div>
+    <div class="output-card" style="border-color: #3b3070;">
+      <div class="fig-name" style="color: #bb9af7;">Vascepa Case Study</div>
+      <div class="fig-desc">Guided walkthrough of trap formation. Step through time, see claim↔usecode stay high while indication↔usecode diverges. Narrative annotations at key legal milestones.</div>
+    </div>
+  </div>
+  <div style="color: #565f89; font-size: 0.75em; margin-top: 10px;">
+    <strong>Data dependencies:</strong> sl_three_way_similarity.parquet → JSON, sl_three_way_usecode_detail.parquet → JSON, GAT network edges → JSON, sl_nda_universe.parquet → JSON.
+    Build after s06 + s07 produce real data. Add --export-json flag to s06/s07 scripts.
+  </div>
+</div>
+
 <div style="text-align:center; margin-top:25px; color:#565f89; font-size:0.75em;">
-  Generated 2026-03-16 &nbsp;|&nbsp; Pipeline version: s01–s04 complete, s05–s06 in progress, s07–s10 planned
+  Generated 2026-03-16 &nbsp;|&nbsp; Pipeline version: s01–s04 complete, s05–s06 in progress, s07–s10 planned &nbsp;|&nbsp; Interactive site: planned
 </div>
 
 </body>
