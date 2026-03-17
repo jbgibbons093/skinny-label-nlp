@@ -281,23 +281,25 @@
           <button id="view-simple" class="active" title="Simple star graph">Simple</button>
           <button id="view-gat" title="Claim-level bipartite graph">Network</button>
           <button id="view-heatmap" title="Claim-UC similarity matrix">Heatmap</button>
-          <select id="heatmap-mode-select" style="display:none;font-size:12px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;">
-            <option value="claim-ind">Claim-Indication</option>
-            <option value="gap">Scope Gap (Claim-UC minus Ind-UC)</option>
-            <option value="claim-uc">Claim-UC Similarity</option>
-            <option value="ind-uc">Indication-UC Similarity</option>
-          </select>
-          <div id="heatmap-threshold" style="display:none;font-size:11px;white-space:nowrap;">
-            Network threshold: <input type="range" id="sparse-slider" min="0.80" max="0.98" step="0.01" value="0.88" style="width:80px;vertical-align:middle;">
-            <span id="sparse-label">0.88</span>
-          </div>
           <button id="view-sankey" title="Flow diagram: Patents → Claims → Use Codes">Sankey</button>
         </div>
-        <label id="density-control" style="display:none; font-size:12px; white-space:nowrap;">
-          Top <input type="number" id="top-n-per-uc" value="20" min="1" max="999" style="width:48px; font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:4px;"> per UC
-        </label>
       </div>
       <div class="filter-bar" id="advanced-filters" style="display:none;">
+        <label class="filter-field" id="heatmap-mode-field" style="display:none;">Heatmap
+          <select id="heatmap-mode-select" style="font-size:12px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;">
+            <option value="claim-ind">Claim-Indication</option>
+            <option value="gap">Scope Gap</option>
+            <option value="claim-uc">Claim-UC</option>
+            <option value="ind-uc">Ind-UC</option>
+          </select>
+        </label>
+        <label class="filter-field" id="density-control" style="display:none;">Top N/UC
+          <input type="number" id="top-n-per-uc" value="20" min="1" max="999" style="width:48px; font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:4px;">
+        </label>
+        <label class="filter-field" id="heatmap-threshold" style="display:none;">Threshold
+          <input type="range" id="sparse-slider" min="0.80" max="0.98" step="0.01" value="0.88" style="width:70px;vertical-align:middle;">
+          <span id="sparse-label" style="font-size:11px;">0.88</span>
+        </label>
         <label class="filter-field">Claim-Indication
           <select id="ci-status-filter">
             <option value="all">All claims</option>
@@ -1258,15 +1260,20 @@ function setView(view) {
     if (btn) btn.classList.toggle('active', view === v);
   });
   const isAdvanced = view !== 'simple';
-  document.getElementById('density-control').style.display = (view === 'gat') ? '' : 'none';
   document.getElementById('advanced-filters').style.display = isAdvanced ? '' : 'none';
 
-  // Show/hide SVG vs heatmap canvas + heatmap mode selector
+  // Show/hide view-specific controls in filter bar
+  const hmField = document.getElementById('heatmap-mode-field');
+  const densField = document.getElementById('density-control');
+  const threshField = document.getElementById('heatmap-threshold');
+  if (hmField) hmField.style.display = (view === 'heatmap') ? '' : 'none';
+  if (densField) densField.style.display = (view === 'gat') ? '' : 'none';
+  if (threshField) threshField.style.display = (view === 'gat' || view === 'sankey') ? '' : 'none';
+
+  // Show/hide SVG vs heatmap canvas
   const usesCanvas = view === 'heatmap';
   document.querySelector('.network-container').style.display = usesCanvas ? 'none' : '';
   document.getElementById('heatmap-wrap').style.display = usesCanvas ? '' : 'none';
-  document.getElementById('heatmap-mode-select').style.display = usesCanvas ? '' : 'none';
-  document.getElementById('heatmap-threshold').style.display = (view === 'gat' || view === 'sankey') ? '' : 'none';
 
   // Update legend
   const legend = document.getElementById('net-legend');
