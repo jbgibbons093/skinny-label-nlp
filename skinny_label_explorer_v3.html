@@ -2199,6 +2199,33 @@ function renderGATNetwork(nda, year, net, isHeavy) {
         .attr('stroke-width', Math.max(0.8, (ld.sim - 0.80) * 16));
     });
     node.selectAll('circle').attr('opacity', 1);
+  })
+  .on('click', function(e, d) {
+    e.stopPropagation();
+    if (d.type === 'claim' && d.patent) {
+      // Click claim → filter to that patent
+      advancedFilters.patents = new Set([d.patent]);
+      advancedFilters.useCodes = new Set();
+    } else if (d.type === 'usecode') {
+      // Click UC → filter to that UC
+      const ucCode = d.label || d.id.replace('uc_', '');
+      advancedFilters.useCodes = new Set([ucCode]);
+      advancedFilters.patents = new Set();
+    }
+    const yr = parseInt(document.getElementById('year-slider').value);
+    refreshAdvancedFilterUI(selectedDrug, yr, net);
+    renderNetwork(selectedDrug, yr);
+  });
+
+  // Click background to reset filters
+  svg.on('click', function() {
+    if (advancedFilters.patents.size > 0 || advancedFilters.useCodes.size > 0) {
+      advancedFilters.patents = new Set();
+      advancedFilters.useCodes = new Set();
+      const yr = parseInt(document.getElementById('year-slider').value);
+      refreshAdvancedFilterUI(selectedDrug, yr, net);
+      renderNetwork(selectedDrug, yr);
+    }
   });
 
   // Info overlay
@@ -2489,7 +2516,38 @@ function renderSankey(nda, year, net, isHeavy) {
     } else {
       tooltip.style.display = 'none';
     }
-  }).on('mouseout', () => { tooltip.style.display = 'none'; });
+  }).on('mouseout', () => { tooltip.style.display = 'none'; })
+  .on('click', function(e) {
+    const [mx, my] = d3.pointer(e);
+    const hit = [...patNodes, ...claimNodes, ...ucNodes].find(n =>
+      mx >= n.x && mx <= n.x + nodeW && my >= n.y && my <= n.y + n.h
+    );
+    if (hit) {
+      if (patents.includes(hit.id)) {
+        // Click patent → filter to that patent
+        advancedFilters.patents = new Set([hit.id]);
+        advancedFilters.useCodes = new Set();
+      } else if (claimIds.includes(hit.id)) {
+        // Click claim → filter to its patent
+        const pat = claimToPat[hit.id];
+        if (pat) {
+          advancedFilters.patents = new Set([pat]);
+          advancedFilters.useCodes = new Set();
+        }
+      } else {
+        // Click UC → filter to that UC
+        advancedFilters.useCodes = new Set([hit.id]);
+        advancedFilters.patents = new Set();
+      }
+    } else {
+      // Click background → reset
+      advancedFilters.patents = new Set();
+      advancedFilters.useCodes = new Set();
+    }
+    const yr = parseInt(document.getElementById('year-slider').value);
+    refreshAdvancedFilterUI(selectedDrug, yr, net);
+    renderNetwork(selectedDrug, yr);
+  });
 }
 
 // ======================================================================
