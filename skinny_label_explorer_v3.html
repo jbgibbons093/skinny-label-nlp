@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skinny Label Patent Network Explorer v2</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  :root {
+    --blue: #0072B2; --orange: #E69F00; --green: #009E73;
+    --red: #D55E00; --purple: #CC79A7; --cyan: #56B4E9;
+    --gray: #666; --bg: #f8f9fa; --card: #fff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: #333; }
+  .header { background: linear-gradient(135deg, #1a365d, #2d5a87); color: white; padding: 24px 32px; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header p { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+  .main { display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 16px; max-width: 1600px; margin: 0 auto; }
+  .sidebar { display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--card); border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray); margin-bottom: 8px; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat { text-align: center; }
+  .stat .value { font-size: 20px; font-weight: 700; color: var(--blue); }
+  .stat .label { font-size: 11px; color: var(--gray); }
+  #drug-search { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; }
+  #drug-list { max-height: 400px; overflow-y: auto; }
+  .drug-item { padding: 8px 10px; cursor: pointer; border-radius: 4px; font-size: 12px; border-bottom: 1px solid #f0f0f0; }
+  .drug-item:hover { background: #eef; }
+  .drug-item.active { background: #dde8f8; font-weight: 600; }
+  .drug-item .trap { font-size: 11px; font-weight: 600; }
+  .drug-item .trap.positive { color: var(--red); }
+  .drug-item .trap.negative { color: var(--green); }
+  .load-more { padding: 8px; text-align: center; color: var(--blue); cursor: pointer; font-size: 12px; font-weight: 600; }
+  .load-more:hover { background: #eef; border-radius: 4px; }
+  .content { display: flex; flex-direction: column; gap: 16px; }
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  #trend-chart { width: 100%; height: 260px; }
+  #drug-chart { width: 100%; height: 260px; }
+  .network-container { max-height: 600px; overflow-y: auto; overflow-x: hidden; border-radius: 6px; }
+  #network-svg { width: 100%; min-height: 400px; background: #fafbfc; border-radius: 6px; }
+  .network-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .year-slider { display: flex; align-items: center; gap: 8px; flex: 1; }
+  .year-slider input[type="range"] { flex: 1; min-width: 150px; }
+  .year-slider .year-label { font-size: 18px; font-weight: 700; color: var(--blue); min-width: 50px; }
+  .play-btn { background: var(--blue); color: white; border: none; border-radius: 6px; padding: 6px 14px;
+    font-size: 13px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+  .play-btn:hover { opacity: 0.85; }
+  .play-btn.playing { background: var(--red); }
+  .view-toggle { display: flex; gap: 2px; background: #eee; border-radius: 6px; padding: 2px; }
+  .view-toggle button { border: none; background: transparent; padding: 5px 12px; border-radius: 4px;
+    font-size: 12px; cursor: pointer; color: var(--gray); font-weight: 500; }
+  .view-toggle button.active { background: white; color: var(--blue); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11px; margin-top: 4px; }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .legend-line { width: 16px; height: 3px; border-radius: 1px; }
+  .tooltip { position: absolute; background: rgba(0,0,0,0.9); color: white; padding: 10px 14px; border-radius: 8px;
+    font-size: 12px; pointer-events: none; z-index: 100; max-width: 400px; line-height: 1.5; }
+  .tooltip .tt-label { color: #aaa; font-size: 10px; text-transform: uppercase; margin-top: 4px; }
+  .tooltip .tt-sim { font-weight: 600; }
+  .tooltip .tt-claim-text { color: #ccc; font-size: 11px; margin-top: 4px; font-style: italic; }
+  .info-text { font-size: 12px; color: var(--gray); line-height: 1.5; }
+  .loading { text-align: center; padding: 40px; color: var(--gray); font-size: 14px; }
+  /* Patent color chips in legend */
+  .pat-legend { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 11px; }
+  .pat-chip { display: flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 3px; background: #f5f5f5; }
+  .pat-dot { width: 8px; height: 8px; border-radius: 50%; }
+  /* Network info overlay */
+  .net-info { position: absolute; top: 8px; right: 12px; text-align: right; font-size: 12px; pointer-events: none; }
+  .net-info .year-big { font-size: 22px; font-weight: 700; color: var(--blue); }
+  .net-info .trap-val { font-size: 14px; color: var(--gray); }
+  .net-info .trap-val.positive { color: var(--red); }
+  .net-info .trap-val.negative { color: var(--green); }
+  /* Network layout labels */
+  .axis-label { font-size: 10px; fill: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+  /* Help icons */
+  .help-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+    border-radius: 50%; background: #e0e5ec; color: var(--gray); font-size: 10px; font-weight: 700;
+    cursor: help; margin-left: 6px; vertical-align: middle; position: relative; }
+  .help-icon:hover .help-tip { display: block; }
+  .help-tip { display: none; position: absolute; top: 22px; left: -120px; width: 300px; background: rgba(0,0,0,0.92);
+    color: #eee; padding: 12px 14px; border-radius: 8px; font-size: 12px; font-weight: 400; line-height: 1.5;
+    z-index: 200; text-transform: none; letter-spacing: 0; pointer-events: none; }
+  /* Heatmap */
+  #heatmap-canvas { width: 100%; border-radius: 6px; cursor: crosshair; }
+  .heatmap-container { max-height: 600px; overflow: auto; }
+  /* Methods section */
+  .methods-toggle { cursor: pointer; color: var(--blue); font-weight: 600; font-size: 13px; user-select: none; }
+  .methods-toggle:hover { text-decoration: underline; }
+  .methods-body { display: none; margin-top: 10px; font-size: 12px; line-height: 1.7; color: #444; }
+  .methods-body.open { display: block; }
+  .methods-body h4 { color: var(--blue); margin: 12px 0 4px; font-size: 13px; }
+  .methods-body code { background: #f0f2f5; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  @media (max-width: 900px) { .main { grid-template-columns: 1fr; } .panels { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Skinny Label Patent Network Explorer</h1>
+  <p>Claim-level semantic similarity: patent claims, use codes, and label indications (1988-2024)</p>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="card">
+      <h3>Dataset Overview</h3>
+      <div class="stat-grid">
+        <div class="stat"><div class="value" id="s-ndas">-</div><div class="label">Treatment NDAs</div></div>
+        <div class="stat"><div class="value" id="s-years">-</div><div class="label">Years</div></div>
+        <div class="stat"><div class="value" id="s-trap">-</div><div class="label">Scope Gap &gt; 0</div></div>
+        <div class="stat"><div class="value" id="s-control">-</div><div class="label">Control NDAs</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Select Drug</h3>
+      <input type="text" id="drug-search" placeholder="Search by name, NDA, or ingredient...">
+      <div id="drug-list"></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="panels">
+      <div class="card">
+        <h3>Aggregate Temporal Trends
+          <span class="help-icon">?<span class="help-tip">Shows how patent claim similarity to use codes (red), label indication similarity to use codes (green), and the scope gap (purple, dashed) have changed across all drugs from 1988-2024. Vertical dashed lines mark GSK v. Teva (2021) and Amarin v. Hikma (2024). The gap between red and green lines is the average scope gap — when red is above green, patent claims semantically exceed what the label covers.</span></span>
+        </h3>
+        <canvas id="trend-chart"></canvas>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Claim-UC</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Ind-UC</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Scope Gap</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Drug Similarity Trajectory: <span id="drug-title">Select a drug</span>
+          <span class="help-icon">?<span class="help-tip">Shows how this drug's similarities change over its Orange Book lifetime. <strong>Red (Claim-UC):</strong> how closely patent claims match use code descriptions. <strong>Green (Ind-UC):</strong> how closely the drug's label matches use codes. <strong>Purple dashed (Scope Gap):</strong> the difference. When purple is positive, patent claims semantically reach beyond what the label covers — the core of the skinny label problem.</span></span>
+        </h3>
+        <canvas id="drug-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="card" style="position:relative">
+      <h3>Claim-Use Code Network: <span id="net-title">-</span>
+        <span class="help-icon">?<span class="help-tip"><strong>Simple:</strong> Star graph — drug at center, use codes as satellites.<br><br><strong>Network:</strong> Bipartite graph — individual patent claims (left) connected to use codes (right). Claims colored by patent. Red edges = claim exceeds label for that UC.<br><br><strong>Heatmap:</strong> Matrix of per-edge scope gaps. Red = claim exceeds label (positive gap), green = label covers claim (negative gap). The primary analytical view.<br><br><strong>Sankey:</strong> Flow diagram showing Patent → Claim → Use Code connections. Width = similarity strength.</span></span>
+      </h3>
+      <div class="network-controls">
+        <button class="play-btn" id="play-btn" title="Animate through years">&#9654; Play</button>
+        <div class="year-slider">
+          <span style="font-size:12px">Year:</span>
+          <input type="range" id="year-slider" min="1988" max="2024" value="2024" step="1">
+          <span class="year-label" id="year-label">2024</span>
+        </div>
+        <div class="view-toggle">
+          <button id="view-simple" class="active" title="Simple star graph">Simple</button>
+          <button id="view-gat" title="Claim-level bipartite graph">Network</button>
+          <button id="view-heatmap" title="Claim-UC similarity matrix">Heatmap</button>
+          <button id="view-sankey" title="Flow diagram: Patents → Claims → Use Codes">Sankey</button>
+        </div>
+        <label id="density-control" style="display:none; font-size:12px; white-space:nowrap;">
+          Top <input type="number" id="top-n-per-uc" value="20" min="1" max="999" style="width:48px; font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:4px;"> per UC
+        </label>
+        <input type="text" id="uc-filter" placeholder="Filter UCs..." style="display:none; width:100px; padding:4px 8px; font-size:12px; border:1px solid #ccc; border-radius:4px;">
+      </div>
+      <div class="network-container"><svg id="network-svg"></svg></div>
+      <div class="heatmap-container" id="heatmap-wrap" style="display:none"><canvas id="heatmap-canvas"></canvas></div>
+      <div id="pat-legend" class="pat-legend"></div>
+      <div class="legend" id="net-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Drug</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Use Code</div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--red);opacity:0.7"></div>Claim &gt; Label</div>
+        <div class="legend-item"><div class="legend-line" style="background:var(--green);opacity:0.7"></div>Label &ge; Claim</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>About &amp; Methods</h3>
+      <p class="info-text">
+        This tool visualizes the semantic relationship between <strong>individual patent claims</strong>,
+        Orange Book use codes, and approved label indications for FDA-approved drugs.
+        The <strong>scope gap</strong> (formerly "scope gap") measures how far patent claims semantically
+        exceed what the drug's label actually covers.
+      </p>
+      <div class="methods-toggle" id="methods-toggle" onclick="document.getElementById('methods-body').classList.toggle('open'); this.textContent = this.textContent.includes('+') ? '- Hide methods' : '+ Show methods'">+ Show methods</div>
+      <div class="methods-body" id="methods-body">
+        <h4>Three-Way Semantic Similarity</h4>
+        All text (patent claims, use code descriptions, label indications) is embedded with
+        <code>S-PubMedBert-MS-MARCO</code> (768-dim, biomedical domain). Cosine similarity in this shared
+        space measures semantic closeness. Three pairwise similarities are computed:
+        <ul style="margin:6px 0 6px 20px">
+          <li><strong>Claim &harr; Use Code:</strong> Does the patent's language match the use code description?</li>
+          <li><strong>Indication &harr; Use Code:</strong> Does the drug label's approved indication match the use code?</li>
+          <li><strong>Scope Gap:</strong> = Claim-UC similarity minus Indication-UC similarity. Positive = patent claims reach beyond label.</li>
+        </ul>
+
+        <h4>Scope Gap (formerly Scope Gap)</h4>
+        <code>scope_gap = mean(max_claim_sim_per_UC) - mean(indication_UC_sim)</code><br>
+        For each use code, we find the single best-matching claim (max across all independent + dependent claims).
+        The average of these per-UC maxima is compared to the average indication-UC similarity.
+        A positive scope gap means the patent portfolio semantically covers territory that the label does not.
+
+        <h4>Similarity Floor</h4>
+        Biomedical embeddings have a floor at ~0.82 cosine similarity — even unrelated texts score this high.
+        The meaningful range is 0.82&ndash;1.0. Our threshold of 0.88 corresponds to the 10th percentile of
+        true indication&harr;use code matches. Edges below 0.88 are considered "unmatched."
+
+        <h4>Independent vs. Dependent Claims</h4>
+        Independent claims define broad patent scope ("A method of treating..."). Dependent claims narrow
+        to specifics ("...wherein the disease is cardiovascular disease"). Both are embedded individually.
+        228,661 total claims: 52,982 independent, 175,580 dependent.
+        The dependent claim toggle shows how much they contribute to the scope gap.
+
+        <h4>Data Sources</h4>
+        <ul style="margin:6px 0 6px 20px">
+          <li>2,927 NDAs (1,966 with use codes, 961 control)</li>
+          <li>228,661 patent method-of-use claims</li>
+          <li>17,761 parsed label indications</li>
+          <li>4,421 FDA use code descriptions</li>
+          <li>Orange Book snapshots 1988&ndash;2024</li>
+        </ul>
+
+        <h4>Network Data</h4>
+        1,013,672 claim-UC edges (all pairs with cosine &ge; 0.88) across 1,924 NDAs.
+        80.8% of edges from independent claims, 19.2% from dependent claims.
+        The "Top N per UC" control adjusts how many claims are shown per use code.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip" style="display:none"></div>
+
+<script>
+// ======================================================================
+// Data & State
+// ======================================================================
+let DATA = null;
+let selectedDrug = null;
+let currentFiltered = null;
+let displayedCount = 0;
+const PAGE_SIZE = 50;
+let currentView = 'simple'; // 'simple' or 'gat'
+let playInterval = null;
+let currentSim = null; // D3 force simulation reference
+
+// Patent colors (colorblind-friendly, distinguishable)
+const PAT_COLORS = [
+  '#0072B2', '#009E73', '#CC79A7', '#56B4E9', '#E69F00',
+  '#D55E00', '#8B6914', '#7570B3', '#E7298A', '#66A61E',
+  '#A6761D', '#1B9E77', '#D95F02', '#7570B3', '#E6AB02',
+];
+
+// ======================================================================
+// Load data
+// ======================================================================
+document.querySelector('.content').insertAdjacentHTML('afterbegin',
+  '<div class="card" id="loading-msg"><p style="text-align:center;color:#999;padding:20px">Loading data (97 MB)...</p></div>');
+
+fetch('site_data_gat.json').then(r => {
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}).then(data => {
+  DATA = data;
+  console.log('Loaded site_data_gat.json, networks:', Object.keys(data.networks || {}).length);
+  const el = document.getElementById('loading-msg');
+  if (el) el.remove();
+  init();
+}).catch(e => {
+  console.warn('GAT load failed:', e.message, '- falling back to site_data.json');
+  fetch('site_data.json').then(r => r.json()).then(data => {
+    DATA = data;
+    const el = document.getElementById('loading-msg');
+    if (el) el.remove();
+    init();
+  }).catch(e2 => {
+    document.querySelector('.content').innerHTML =
+      '<div class="card"><p>Error loading data: ' + e2.message + '</p></div>';
+  });
+});
+
+// ======================================================================
+// Init
+// ======================================================================
+function init() {
+  // Stats
+  document.getElementById('s-ndas').textContent = DATA.stats.n_treatment.toLocaleString();
+  document.getElementById('s-years').textContent = `${DATA.stats.year_range[0]}-${DATA.stats.year_range[1]}`;
+  const withTs = DATA.drugs.filter(d => d.trap_score !== null);
+  const posTs = withTs.filter(d => d.trap_score > 0).length;
+  document.getElementById('s-trap').textContent = Math.round(100 * posTs / withTs.length) + '%';
+  document.getElementById('s-control').textContent = DATA.stats.n_control.toLocaleString();
+
+  // Drug list
+  currentFiltered = DATA.drugs;
+  renderDrugList(currentFiltered, true);
+
+  // Search
+  let searchTimer = null;
+  document.getElementById('drug-search').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const q = e.target.value.toLowerCase();
+      currentFiltered = DATA.drugs.filter(d =>
+        d.name.toLowerCase().includes(q) || d.nda.includes(q) || d.ingredient.toLowerCase().includes(q)
+      );
+      renderDrugList(currentFiltered, true);
+    }, 150);
+  });
+
+  // Year slider
+  document.getElementById('year-slider').addEventListener('input', e => {
+    document.getElementById('year-label').textContent = e.target.value;
+    if (selectedDrug) renderNetwork(selectedDrug, parseInt(e.target.value));
+  });
+
+  // Play button
+  document.getElementById('play-btn').addEventListener('click', togglePlay);
+
+  // View toggle
+  document.getElementById('view-simple').addEventListener('click', () => setView('simple'));
+  document.getElementById('view-gat').addEventListener('click', () => setView('gat'));
+  document.getElementById('view-heatmap').addEventListener('click', () => setView('heatmap'));
+  document.getElementById('view-sankey').addEventListener('click', () => setView('sankey'));
+
+  // UC filter
+  let ucFilterTimer = null;
+  document.getElementById('uc-filter').addEventListener('input', () => {
+    clearTimeout(ucFilterTimer);
+    ucFilterTimer = setTimeout(() => {
+      if (selectedDrug && currentView !== 'simple') {
+        const year = parseInt(document.getElementById('year-slider').value);
+        renderNetwork(selectedDrug, year);
+      }
+    }, 200);
+  });
+
+  // Top-N per UC control
+  document.getElementById('top-n-per-uc').addEventListener('change', () => {
+    if (selectedDrug && currentView === 'gat') {
+      const year = parseInt(document.getElementById('year-slider').value);
+      renderNetwork(selectedDrug, year);
+    }
+  });
+
+  // Log network data availability
+  const hasNetworks = DATA.networks && Object.keys(DATA.networks).length > 0;
+  console.log('Network data:', hasNetworks ? Object.keys(DATA.networks).length + ' NDAs' : 'NOT AVAILABLE');
+  if (!hasNetworks) {
+    ['view-gat', 'view-heatmap', 'view-sankey'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.title += ' (data not loaded — try refreshing)';
+    });
+  }
+
+  // Draw aggregate trend
+  drawTrendChart();
+
+  // Select first drug
+  if (DATA.drugs.length > 0) selectDrug(DATA.drugs[0].nda);
+}
+
+// ======================================================================
+// View toggle
+// ======================================================================
+function setView(view) {
+  currentView = view;
+  ['simple', 'gat', 'heatmap', 'sankey'].forEach(v => {
+    const btn = document.getElementById('view-' + v);
+    if (btn) btn.classList.toggle('active', view === v);
+  });
+  const isAdvanced = view !== 'simple';
+  document.getElementById('density-control').style.display = view === 'gat' ? '' : 'none';
+  document.getElementById('uc-filter').style.display = isAdvanced ? '' : 'none';
+
+  // Show/hide SVG vs heatmap canvas
+  const usesCanvas = view === 'heatmap';
+  document.querySelector('.network-container').style.display = usesCanvas ? 'none' : '';
+  document.getElementById('heatmap-wrap').style.display = usesCanvas ? '' : 'none';
+
+  // Update legend
+  const legend = document.getElementById('net-legend');
+  if (view === 'gat') {
+    legend.innerHTML = `
+      <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Use Code</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--red);opacity:0.7"></div>Claim &gt; Label (trap)</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--green);opacity:0.7"></div>Label &ge; Claim</div>
+      <div class="legend-item"><div class="legend-line" style="background:#bbb;opacity:0.5"></div>No label data</div>
+    `;
+  } else {
+    legend.innerHTML = `
+      <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Drug</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Use Code</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--red);opacity:0.7"></div>Claim &gt; Label</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--green);opacity:0.7"></div>Label &ge; Claim</div>
+    `;
+  }
+
+  if (selectedDrug) {
+    const year = parseInt(document.getElementById('year-slider').value);
+    renderNetwork(selectedDrug, year);
+  }
+}
+
+// ======================================================================
+// Animated playback
+// ======================================================================
+function togglePlay() {
+  const btn = document.getElementById('play-btn');
+  if (playInterval) {
+    clearInterval(playInterval);
+    playInterval = null;
+    btn.innerHTML = '&#9654; Play';
+    btn.classList.remove('playing');
+  } else {
+    if (!selectedDrug) return;
+    const tl = DATA.timelines[selectedDrug];
+    if (!tl || tl.length === 0) return;
+
+    const years = tl.map(d => d.y);
+    const slider = document.getElementById('year-slider');
+
+    // Always start playback from the first year
+    let idx = 0;
+    const firstYr = years[0];
+    slider.value = firstYr;
+    document.getElementById('year-label').textContent = firstYr;
+    renderNetwork(selectedDrug, firstYr);
+
+    btn.innerHTML = '&#9724; Stop';
+    btn.classList.add('playing');
+
+    playInterval = setInterval(() => {
+      idx++;
+      if (idx >= years.length) {
+        stopPlay();
+        return;
+      }
+      const yr = years[idx];
+      slider.value = yr;
+      document.getElementById('year-label').textContent = yr;
+      renderNetwork(selectedDrug, yr);
+    }, 1200);
+  }
+}
+
+function stopPlay() {
+  if (playInterval) {
+    clearInterval(playInterval);
+    playInterval = null;
+    const btn = document.getElementById('play-btn');
+    btn.innerHTML = '&#9654; Play';
+    btn.classList.remove('playing');
+  }
+}
+
+// ======================================================================
+// Drug list
+// ======================================================================
+function renderDrugList(drugs, reset) {
+  const list = document.getElementById('drug-list');
+  if (reset) { list.innerHTML = ''; displayedCount = 0; }
+  const end = Math.min(displayedCount + PAGE_SIZE, drugs.length);
+  const fragment = document.createDocumentFragment();
+
+  for (let i = displayedCount; i < end; i++) {
+    const d = drugs[i];
+    const div = document.createElement('div');
+    div.className = 'drug-item' + (selectedDrug === d.nda ? ' active' : '');
+    div.dataset.nda = d.nda;
+    div.onclick = () => selectDrug(d.nda);
+    const cls = d.trap_score >= 0 ? 'positive' : 'negative';
+    div.innerHTML = `<strong>${d.name}</strong> <span style="color:#999">(${d.nda})</span><br>
+      <span class="trap ${cls}">${d.trap_score >= 0 ? '+' : ''}${d.trap_score.toFixed(3)}</span>
+      &middot; ${d.n_use_codes} UCs &middot; ${d.ingredient.substring(0, 30)}`;
+    fragment.appendChild(div);
+  }
+
+  const existing = list.querySelector('.load-more');
+  if (existing) existing.remove();
+  list.appendChild(fragment);
+  displayedCount = end;
+
+  if (displayedCount < drugs.length) {
+    const more = document.createElement('div');
+    more.className = 'load-more';
+    more.textContent = `Show more (${displayedCount} of ${drugs.length})`;
+    more.onclick = () => renderDrugList(drugs, false);
+    list.appendChild(more);
+  }
+}
+
+// ======================================================================
+// Select drug
+// ======================================================================
+function selectDrug(nda) {
+  stopPlay();
+  selectedDrug = nda;
+  const drug = DATA.drugs.find(d => d.nda === nda);
+  if (!drug) return;
+
+  document.getElementById('drug-title').textContent = `${drug.name} (NDA ${nda})`;
+  document.getElementById('net-title').textContent = `${drug.name}`;
+
+  document.querySelectorAll('.drug-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.nda === nda);
+  });
+
+  drawDrugChart(nda);
+
+  // Set slider range to drug's actual years
+  const tl = DATA.timelines[nda];
+  const slider = document.getElementById('year-slider');
+  if (tl && tl.length > 0) {
+    const firstYear = tl[0].y;
+    const lastYear = tl[tl.length - 1].y;
+    slider.min = firstYear;
+    slider.max = lastYear;
+    slider.value = lastYear;
+    document.getElementById('year-label').textContent = lastYear;
+    renderNetwork(nda, lastYear);
+  } else {
+    slider.min = 1988;
+    slider.max = 2024;
+    renderNetwork(nda, parseInt(slider.value));
+  }
+}
+
+// ======================================================================
+// Aggregate trend chart (Canvas)
+// ======================================================================
+function drawTrendChart() {
+  const canvas = document.getElementById('trend-chart');
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width - 32; canvas.height = 260;
+  const w = canvas.width, h = canvas.height;
+  const pad = { top: 20, right: 20, bottom: 35, left: 50 };
+
+  ctx.clearRect(0, 0, w, h);
+
+  const years = DATA.yearly.map(d => d.y);
+  const cuMean = DATA.yearly.map(d => d.cu || 0);
+  const iuMean = DATA.yearly.map(d => d.iu || 0);
+  const trapMean = DATA.yearly.map(d => d.ts || 0);
+
+  const xScale = i => pad.left + (i / (years.length - 1)) * (w - pad.left - pad.right);
+  const yMin = 0.88, yMax = 0.96;
+  const yScale = v => pad.top + (1 - (v - yMin) / (yMax - yMin)) * (h - pad.top - pad.bottom);
+
+  // Axes
+  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(pad.left, pad.top); ctx.lineTo(pad.left, h - pad.bottom);
+  ctx.lineTo(w - pad.right, h - pad.bottom); ctx.stroke();
+
+  // Y ticks
+  ctx.fillStyle = '#666'; ctx.font = '10px Arial'; ctx.textAlign = 'right';
+  for (let v = yMin; v <= yMax; v += 0.02) {
+    const y = yScale(v);
+    ctx.fillText(v.toFixed(2), pad.left - 4, y + 3);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.strokeStyle = '#eee'; ctx.stroke();
+  }
+
+  // X ticks
+  ctx.textAlign = 'center'; ctx.fillStyle = '#666';
+  years.forEach((yr, i) => { if (yr % 5 === 0) ctx.fillText(yr, xScale(i), h - pad.bottom + 14); });
+
+  function drawLine(data, color, dashed) {
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+    if (dashed) ctx.setLineDash([4, 3]);
+    data.forEach((v, i) => { const x = xScale(i), y = yScale(v); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  drawLine(cuMean, '#D55E00');
+  drawLine(iuMean, '#009E73');
+
+  // Trap on right axis
+  const tMin = -0.01, tMax = 0.03;
+  const tScale = v => pad.top + (1 - (v - tMin) / (tMax - tMin)) * (h - pad.top - pad.bottom);
+  ctx.beginPath(); ctx.strokeStyle = '#CC79A7'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+  trapMean.forEach((v, i) => {
+    if (v === 0 && i > 0) return;
+    const x = xScale(i), y = tScale(v);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Legal landmarks
+  [2021, 2024].forEach(yr => {
+    const i = years.indexOf(yr);
+    if (i >= 0) {
+      const x = xScale(i);
+      ctx.beginPath(); ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.setLineDash([2, 2]);
+      ctx.moveTo(x, pad.top); ctx.lineTo(x, h - pad.bottom); ctx.stroke(); ctx.setLineDash([]);
+    }
+  });
+
+  ctx.fillStyle = '#333'; ctx.font = '11px Arial'; ctx.textAlign = 'left';
+  ctx.fillText('Cosine Similarity', pad.left, pad.top - 6);
+}
+
+// ======================================================================
+// Drug trajectory chart (Canvas)
+// ======================================================================
+function drawDrugChart(nda) {
+  const canvas = document.getElementById('drug-chart');
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width - 32; canvas.height = 260;
+  const w = canvas.width, h = canvas.height;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const tl = DATA.timelines[nda];
+  if (!tl || tl.length === 0) {
+    ctx.fillStyle = '#999'; ctx.font = '13px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('No timeline data for this drug', w / 2, h / 2);
+    return;
+  }
+
+  const padR = 50;
+  const pad2 = { top: 20, right: padR, bottom: 35, left: 50 };
+
+  const years = tl.map(d => d.y);
+  const cu = tl.map(d => d.cu != null ? d.cu : null);
+  const iu = tl.map(d => d.iu != null ? d.iu : null);
+  const trap = tl.map(d => d.ts != null ? d.ts : null);
+
+  const simVals = [...cu, ...iu].filter(v => v !== null);
+  const yMin = simVals.length ? Math.min(...simVals) - 0.01 : 0;
+  const yMax = simVals.length ? Math.max(...simVals) + 0.01 : 1;
+
+  const trapVals = trap.filter(v => v !== null);
+  const tMin = trapVals.length ? Math.min(...trapVals, 0) - 0.01 : -0.05;
+  const tMax = trapVals.length ? Math.max(...trapVals, 0) + 0.01 : 0.15;
+
+  const xScale = i => pad2.left + (i / Math.max(1, years.length - 1)) * (w - pad2.left - pad2.right);
+  const yScale = v => pad2.top + (1 - (v - yMin) / (yMax - yMin)) * (h - pad2.top - pad2.bottom);
+  const tScale = v => pad2.top + (1 - (v - tMin) / (tMax - tMin)) * (h - pad2.top - pad2.bottom);
+
+  // Axes
+  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(pad2.left, pad2.top); ctx.lineTo(pad2.left, h - pad2.bottom);
+  ctx.lineTo(w - pad2.right, h - pad2.bottom); ctx.stroke();
+  ctx.beginPath(); ctx.strokeStyle = '#CC79A7'; ctx.lineWidth = 0.5;
+  ctx.moveTo(w - pad2.right, pad2.top); ctx.lineTo(w - pad2.right, h - pad2.bottom); ctx.stroke();
+
+  // Zero line
+  if (tMin < 0 && tMax > 0) {
+    ctx.beginPath(); ctx.strokeStyle = '#e0c0d0'; ctx.setLineDash([3, 3]);
+    ctx.moveTo(pad2.left, tScale(0)); ctx.lineTo(w - pad2.right, tScale(0)); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // X ticks
+  ctx.fillStyle = '#666'; ctx.font = '10px Arial'; ctx.textAlign = 'center';
+  years.forEach((yr, i) => {
+    if (years.length <= 15 || yr % 2 === 0) ctx.fillText(yr, xScale(i), h - pad2.bottom + 14);
+  });
+
+  // Left Y ticks
+  ctx.fillStyle = '#666'; ctx.textAlign = 'right';
+  const step = (yMax - yMin) / 4;
+  for (let i = 0; i <= 4; i++) ctx.fillText((yMin + step * i).toFixed(3), pad2.left - 4, yScale(yMin + step * i) + 3);
+
+  // Right Y ticks
+  ctx.fillStyle = '#CC79A7'; ctx.textAlign = 'left';
+  const tStep = (tMax - tMin) / 4;
+  for (let i = 0; i <= 4; i++) ctx.fillText((tMin + tStep * i).toFixed(3), w - pad2.right + 4, tScale(tMin + tStep * i) + 3);
+
+  function drawLine(data, color, dashed, scaleFn) {
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1.8;
+    if (dashed) ctx.setLineDash([4, 3]);
+    let started = false;
+    data.forEach((v, i) => {
+      if (v === null) return;
+      const x = xScale(i), y = scaleFn(v);
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+
+    data.forEach((v, i) => {
+      if (v === null) return;
+      ctx.beginPath(); ctx.arc(xScale(i), scaleFn(v), 3, 0, Math.PI * 2);
+      ctx.fillStyle = color; ctx.fill();
+    });
+  }
+
+  drawLine(cu, '#D55E00', false, yScale);
+  drawLine(iu, '#009E73', false, yScale);
+  drawLine(trap, '#CC79A7', true, tScale);
+}
+
+// ======================================================================
+// Network rendering (dispatcher)
+// ======================================================================
+// Get active UC filter text
+function getUCFilter() {
+  const f = document.getElementById('uc-filter').value.trim().toUpperCase();
+  return f || null;
+}
+
+function renderNetwork(nda, year) {
+  if (currentSim) { currentSim.stop(); currentSim = null; }
+
+  if (currentView === 'heatmap' && DATA.networks && DATA.networks[nda]) {
+    renderHeatmap(nda, year);
+  } else if (currentView === 'sankey' && DATA.networks && DATA.networks[nda]) {
+    renderSankey(nda, year);
+  } else if (currentView === 'gat' && DATA.networks && DATA.networks[nda]) {
+    renderGATNetwork(nda, year);
+  } else {
+    renderSimpleNetwork(nda, year);
+  }
+}
+
+// ======================================================================
+// Simple network (original star graph)
+// ======================================================================
+function renderSimpleNetwork(nda, year) {
+  const svg = d3.select('#network-svg');
+  svg.selectAll('*').remove();
+  document.getElementById('pat-legend').innerHTML = '';
+  const rect = svg.node().getBoundingClientRect();
+  const w = rect.width, h = 520;
+  svg.attr('viewBox', `0 0 ${w} ${h}`);
+
+  const tl = DATA.timelines[nda];
+  if (!tl) {
+    svg.append('text').attr('x', w / 2).attr('y', h / 2).attr('text-anchor', 'middle')
+      .attr('fill', '#999').text('No timeline data');
+    return;
+  }
+
+  let best = tl[0];
+  for (const entry of tl) { if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry; }
+  if (!best) return;
+
+  const drug = DATA.drugs.find(d => d.nda === nda);
+  const drugName = drug ? drug.name : nda;
+
+  const nodes = [{ id: 'drug', label: drugName, type: 'drug', r: 18 }];
+  const links = [];
+
+  const ucs = best.ucs || [];
+  ucs.forEach(uc => {
+    const nodeId = `uc_${uc.c}`;
+    nodes.push({ id: nodeId, label: uc.c, type: 'usecode', r: 10, cu: uc.cu, iu: uc.iu });
+    links.push({ source: 'drug', target: nodeId, cu: uc.cu || 0, iu: uc.iu || 0 });
+  });
+
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+    .force('charge', d3.forceManyBody().strength(-250))
+    .force('center', d3.forceCenter(w / 2, h / 2))
+    .force('collision', d3.forceCollide().radius(d => d.r + 8));
+  currentSim = sim;
+
+  const link = svg.append('g').selectAll('line').data(links).join('line')
+    .attr('stroke', d => {
+      const diff = (d.cu || 0) - (d.iu || 0);
+      return diff > 0.02 ? '#D55E00' : diff < -0.02 ? '#009E73' : '#999';
+    })
+    .attr('stroke-width', d => Math.max(1.5, Math.min(5, Math.abs((d.cu || 0) - (d.iu || 0)) * 50)))
+    .attr('stroke-opacity', 0.6);
+
+  const node = svg.append('g').selectAll('g').data(nodes).join('g')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; })
+    );
+
+  node.append('circle')
+    .attr('r', d => d.r)
+    .attr('fill', d => d.type === 'drug' ? '#0072B2' : '#E69F00')
+    .attr('stroke', '#fff').attr('stroke-width', 2).attr('cursor', 'grab');
+
+  node.append('text')
+    .text(d => d.label)
+    .attr('font-size', d => d.type === 'drug' ? '12px' : '10px')
+    .attr('font-weight', d => d.type === 'drug' ? '600' : '400')
+    .attr('text-anchor', 'middle').attr('dy', d => d.r + 14).attr('fill', '#333');
+
+  // Tooltips for simple view
+  const tooltip = document.getElementById('tooltip');
+  node.on('mouseover', (e, d) => {
+    let html = `<strong>${d.label}</strong>`;
+    if (d.type === 'usecode') {
+      if (d.cu != null) html += `<div class="tt-label">Claim-UC</div><div class="tt-sim">${d.cu.toFixed(3)}</div>`;
+      if (d.iu != null) html += `<div class="tt-label">Ind-UC</div><div class="tt-sim">${d.iu.toFixed(3)}</div>`;
+      const diff = (d.cu || 0) - (d.iu || 0);
+      html += `<div class="tt-label">Gap</div><div class="tt-sim" style="color:${diff > 0 ? '#D55E00' : '#009E73'}">${diff >= 0 ? '+' : ''}${diff.toFixed(3)}</div>`;
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.pageX + 14) + 'px';
+    tooltip.style.top = (e.pageY - 14) + 'px';
+  })
+  .on('mousemove', e => {
+    tooltip.style.left = (e.pageX + 14) + 'px';
+    tooltip.style.top = (e.pageY - 14) + 'px';
+  })
+  .on('mouseout', () => { tooltip.style.display = 'none'; });
+
+  // Info overlay
+  svg.append('text').attr('x', w - 12).attr('y', 24).attr('text-anchor', 'end')
+    .attr('font-size', '16px').attr('font-weight', '700').attr('fill', '#0072B2')
+    .text(`${best.y} | ${ucs.length} use codes`);
+  if (best.ts != null) {
+    svg.append('text').attr('x', w - 12).attr('y', 44).attr('text-anchor', 'end')
+      .attr('font-size', '13px').attr('fill', best.ts >= 0 ? '#D55E00' : '#009E73')
+      .text(`Gap: ${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}`);
+  }
+
+  sim.on('tick', () => {
+    link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+}
+
+// ======================================================================
+// GAT network (bipartite: claims <-> use codes)
+// ======================================================================
+function renderGATNetwork(nda, year) {
+  const svg = d3.select('#network-svg');
+  svg.selectAll('*').remove();
+  const rect = svg.node().getBoundingClientRect();
+  const w = rect.width;
+
+  const net = DATA.networks[nda];
+  const tl = DATA.timelines[nda];
+  const drug = DATA.drugs.find(d => d.nda === nda);
+  const drugName = drug ? drug.name : nda;
+
+  if (!net || !tl) {
+    svg.attr('viewBox', `0 0 ${w} 520`);
+    svg.append('text').attr('x', w / 2).attr('y', 260).attr('text-anchor', 'middle')
+      .attr('fill', '#999').text('No network data for this drug');
+    return;
+  }
+
+  // Find closest year in timeline
+  let best = tl[0];
+  for (const entry of tl) { if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry; }
+
+  // Get active use codes for this year
+  const activeUCs = new Set((best.ucs || []).map(u => u.c));
+
+  // Build ind-UC lookup from timeline data
+  const indUCmap = {};
+  const claimUCmap = {};
+  (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; claimUCmap[u.c] = u.cu; });
+
+  // Filter network to active use codes
+  const activeUCData = net.use_codes.filter(uc => activeUCs.has(uc.code));
+  if (activeUCData.length === 0) {
+    svg.attr('viewBox', `0 0 ${w} 520`);
+    svg.append('text').attr('x', w / 2).attr('y', 260).attr('text-anchor', 'middle')
+      .attr('fill', '#999').text(`No use codes active in ${best.y}`);
+    return;
+  }
+
+  // Filter edges: active UCs, claim type, UC filter, then top-N per UC
+  const topN = parseInt(document.getElementById('top-n-per-uc').value) || 20;
+  const ucFilter = getUCFilter();
+  let filteredEdges = net.edges.filter(e => {
+    if (!activeUCs.has(e.u)) return false;
+
+    if (ucFilter && !e.u.toUpperCase().includes(ucFilter)) return false;
+    return true;
+  });
+
+  // Apply top-N per UC (sort by sim descending, keep top N for each UC)
+  const byUC = {};
+  filteredEdges.forEach(e => { (byUC[e.u] = byUC[e.u] || []).push(e); });
+  const activeEdges = [];
+  for (const uc in byUC) {
+    byUC[uc].sort((a, b) => b.s - a.s);
+    activeEdges.push(...byUC[uc].slice(0, topN));
+  }
+
+  // Get claim IDs that appear in active edges
+  const activeClaimIds = new Set(activeEdges.map(e => e.c));
+
+  // Get patents with active claims, assign colors
+  const patentColorMap = {};
+  let patIdx = 0;
+  const activePatents = [];
+
+  net.patents.forEach(p => {
+    const activeClaims = p.claims.filter(c => activeClaimIds.has(c.id));
+    if (activeClaims.length > 0) {
+      patentColorMap[p.pat] = PAT_COLORS[patIdx % PAT_COLORS.length];
+      activePatents.push({ ...p, claims: activeClaims });
+      patIdx++;
+    }
+  });
+
+  // Dynamic height based on node count
+  const totalClaims = activePatents.reduce((s, p) => s + p.claims.length, 0);
+  const maxSide = Math.max(totalClaims, activeUCData.length);
+  const h = Math.max(400, Math.min(900, 80 + maxSide * 28));
+  svg.attr('viewBox', `0 0 ${w} ${h}`);
+
+  // Layout
+  const margin = { top: 65, right: 40, bottom: 25, left: 40 };
+  const claimX = margin.left + 80;
+  const ucX = w - margin.right - 80;
+  const contentH = h - margin.top - margin.bottom;
+
+  // Build D3 nodes
+  const nodes = [];
+  const links = [];
+
+  // Claim nodes (left), grouped by patent
+  let claimIdx = 0;
+  activePatents.forEach(p => {
+    p.claims.forEach(c => {
+      const yPos = margin.top + (claimIdx + 0.5) / Math.max(1, totalClaims) * contentH;
+      nodes.push({
+        id: c.id, type: 'claim',
+        label: c.kind === 'indep' ? 'Indep' : 'Dep',
+        patent: p.pat, kind: c.kind, text: c.text,
+        color: patentColorMap[p.pat],
+        r: c.kind === 'indep' ? 7 : 5,
+        fx: claimX + (c.kind === 'dep' ? 18 : 0),
+        startY: yPos,
+      });
+      claimIdx++;
+    });
+  });
+
+  // UC nodes (right)
+  activeUCData.forEach((uc, i) => {
+    const yPos = margin.top + (i + 0.5) / Math.max(1, activeUCData.length) * contentH;
+    nodes.push({
+      id: `uc_${uc.code}`, type: 'usecode',
+      label: uc.code, desc: uc.desc,
+      iu: indUCmap[uc.code] ?? null,
+      cu: claimUCmap[uc.code] ?? null,
+      color: '#E69F00', r: 10,
+      fx: ucX, startY: yPos,
+    });
+  });
+
+  // Edges with trap classification
+  activeEdges.forEach(e => {
+    const iu = indUCmap[e.u] ?? null;
+    links.push({
+      source: e.c, target: `uc_${e.u}`,
+      sim: e.s, iu: iu,
+      isGap: iu !== null ? (e.s > iu) : null,
+    });
+  });
+
+  // Force simulation (x fixed, y free)
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(w * 0.25).strength(0.04))
+    .force('y', d3.forceY(d => d.startY).strength(0.35))
+    .force('collision', d3.forceCollide().radius(d => d.r + 2))
+    .force('charge', d3.forceManyBody().strength(-12))
+    .alphaDecay(0.035);
+  currentSim = sim;
+
+  // Zone labels
+  svg.append('text').attr('class', 'axis-label')
+    .attr('x', claimX + 10).attr('y', margin.top - 25).attr('text-anchor', 'middle')
+    .text('Patent Claims');
+  svg.append('text').attr('class', 'axis-label')
+    .attr('x', ucX - 10).attr('y', margin.top - 25).attr('text-anchor', 'middle')
+    .text('Use Codes');
+
+  // Drug name
+  svg.append('text')
+    .attr('x', w / 2).attr('y', 26)
+    .attr('text-anchor', 'middle').attr('font-size', '16px').attr('font-weight', '700')
+    .attr('fill', '#1a365d').text(drugName);
+
+  // Invisible wide hit-area paths (for edge hovering)
+  const hitG = svg.append('g');
+  const hitPaths = hitG.selectAll('path').data(links).join('path')
+    .attr('fill', 'none')
+    .attr('stroke', 'transparent')
+    .attr('stroke-width', 12)
+    .attr('cursor', 'pointer');
+
+  // Visible edges (curved)
+  const linkG = svg.append('g');
+  const link = linkG.selectAll('path').data(links).join('path')
+    .attr('fill', 'none')
+    .attr('stroke', d => {
+      if (d.isTrap === true) return '#D55E00';
+      if (d.isTrap === false) return '#009E73';
+      return '#bbb';
+    })
+    .attr('stroke-width', d => Math.max(0.8, (d.sim - 0.80) * 16))
+    .attr('stroke-opacity', d => 0.15 + (d.sim - 0.80) * 3.5)
+    .attr('pointer-events', 'none');  // hits handled by invisible layer
+
+  // Nodes
+  const nodeG = svg.append('g');
+  const node = nodeG.selectAll('g').data(nodes).join('g')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fy = d.y; })
+      .on('drag', (e, d) => { d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); d.fy = null; })
+    );
+
+  node.append('circle')
+    .attr('r', d => d.r)
+    .attr('fill', d => d.color)
+    .attr('stroke', d => d.type === 'claim' ? d3.color(d.color).darker(0.3) : '#fff')
+    .attr('stroke-width', d => d.type === 'claim' ? 1 : 2)
+    .attr('cursor', 'grab');
+
+  // UC labels
+  node.filter(d => d.type === 'usecode').append('text')
+    .text(d => d.label)
+    .attr('font-size', activeUCData.length > 15 ? '8px' : '10px')
+    .attr('font-weight', '500')
+    .attr('text-anchor', 'start').attr('dx', 14).attr('dy', 4).attr('fill', '#555');
+
+  // Patent group labels (updated on tick)
+  const patentLabels = svg.append('g');
+
+  // --- Tooltips and highlighting ---
+  const tooltip = document.getElementById('tooltip');
+
+  // Edge hover (via invisible hit paths)
+  hitPaths.on('mouseover', function(e, d) {
+    if (!d || !d.sim) return;
+    // Highlight this edge
+    const idx = links.indexOf(d);
+    link.each(function(ld, li) {
+      d3.select(this).attr('stroke-opacity', li === idx ? 0.9 : 0.05)
+        .attr('stroke-width', li === idx ? 4 : Math.max(0.5, (ld.sim - 0.80) * 10));
+    });
+    // Tooltip
+    let html = `<strong>Claim &harr; Use Code</strong>`;
+    html += `<div class="tt-sim" style="font-size:16px">${d.sim.toFixed(4)}</div>`;
+    if (d.iu != null) {
+      const gap = d.sim - d.iu;
+      html += `<div class="tt-label">Indication-UC sim</div><div>${d.iu.toFixed(4)}</div>`;
+      html += `<div class="tt-label">Gap (claim - indication)</div>`;
+      html += `<div class="tt-sim" style="color:${gap > 0 ? '#D55E00' : '#009E73'}">${gap >= 0 ? '+' : ''}${gap.toFixed(4)}</div>`;
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.pageX + 14) + 'px';
+    tooltip.style.top = (e.pageY - 14) + 'px';
+  })
+  .on('mousemove', function(e) {
+    tooltip.style.left = (e.pageX + 14) + 'px';
+    tooltip.style.top = (e.pageY - 14) + 'px';
+  })
+  .on('mouseout', function() {
+    tooltip.style.display = 'none';
+    link.each(function(ld) {
+      d3.select(this)
+        .attr('stroke-opacity', 0.15 + (ld.sim - 0.80) * 3.5)
+        .attr('stroke-width', Math.max(0.8, (ld.sim - 0.80) * 16));
+    });
+  });
+
+  // Node hover — highlight connected edges
+  node.on('mouseover', function(e, d) {
+    // Highlight edges connected to this node
+    link.each(function(ld) {
+      const connected = (ld.source.id || ld.source) === d.id || (ld.target.id || ld.target) === d.id;
+      d3.select(this)
+        .attr('stroke-opacity', connected ? 0.85 : 0.04)
+        .attr('stroke-width', connected ? 3.5 : Math.max(0.3, (ld.sim - 0.80) * 8));
+    });
+    // Dim unconnected nodes
+    node.selectAll('circle').attr('opacity', function(nd) {
+      if (nd.id === d.id) return 1;
+      const hasEdge = links.some(l =>
+        ((l.source.id || l.source) === d.id && (l.target.id || l.target) === nd.id) ||
+        ((l.target.id || l.target) === d.id && (l.source.id || l.source) === nd.id)
+      );
+      return hasEdge ? 1 : 0.15;
+    });
+
+    // Tooltip
+    let html = '';
+    if (d.type === 'usecode') {
+      html = `<strong>${d.label}</strong>`;
+      if (d.desc) html += `<div class="tt-claim-text">${d.desc}</div>`;
+      if (d.cu != null) html += `<div class="tt-label">Claim-UC (avg)</div><div class="tt-sim">${d.cu.toFixed(3)}</div>`;
+      if (d.iu != null) html += `<div class="tt-label">Indication-UC</div><div class="tt-sim">${d.iu.toFixed(3)}</div>`;
+      if (d.cu != null && d.iu != null) {
+        const gap = d.cu - d.iu;
+        html += `<div class="tt-label">Gap</div><div class="tt-sim" style="color:${gap > 0 ? '#D55E00' : '#009E73'}">${gap >= 0 ? '+' : ''}${gap.toFixed(3)}</div>`;
+      }
+    } else if (d.type === 'claim') {
+      html = `<strong>${d.kind === 'indep' ? 'Independent' : 'Dependent'} Claim</strong>`;
+      html += `<div class="tt-label">Patent</div><div>${d.patent}</div>`;
+      if (d.text) html += `<div class="tt-claim-text">"${d.text}"</div>`;
+      // Show connected UCs
+      const connEdges = links.filter(l => (l.source.id || l.source) === d.id);
+      if (connEdges.length > 0) {
+        html += `<div class="tt-label" style="margin-top:6px">Connected use codes</div>`;
+        connEdges.sort((a, b) => b.sim - a.sim).slice(0, 5).forEach(ce => {
+          const ucId = (ce.target.id || ce.target).replace('uc_', '');
+          html += `<div style="font-size:11px">${ucId}: <span class="tt-sim">${ce.sim.toFixed(3)}</span></div>`;
+        });
+      }
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.pageX + 14) + 'px';
+    tooltip.style.top = (e.pageY - 14) + 'px';
+  })
+  .on('mousemove', function(e) {
+    tooltip.style.left = (e.pageX + 14) + 'px';
+    tooltip.style.top = (e.pageY - 14) + 'px';
+  })
+  .on('mouseout', function() {
+    tooltip.style.display = 'none';
+    link.each(function(ld) {
+      d3.select(this)
+        .attr('stroke-opacity', 0.15 + (ld.sim - 0.80) * 3.5)
+        .attr('stroke-width', Math.max(0.8, (ld.sim - 0.80) * 16));
+    });
+    node.selectAll('circle').attr('opacity', 1);
+  });
+
+  // Info overlay
+  svg.append('text').attr('x', w - 12).attr('y', 22).attr('text-anchor', 'end')
+    .attr('font-size', '15px').attr('font-weight', '700').attr('fill', '#0072B2')
+    .text(`${best.y} | ${activeUCData.length} UCs | ${totalClaims} claims`);
+  if (best.ts != null) {
+    svg.append('text').attr('x', w - 12).attr('y', 40).attr('text-anchor', 'end')
+      .attr('font-size', '13px').attr('fill', best.ts >= 0 ? '#D55E00' : '#009E73')
+      .text(`Gap: ${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}`);
+  }
+  svg.append('text').attr('x', w - 12).attr('y', 56).attr('text-anchor', 'end')
+    .attr('font-size', '11px').attr('fill', '#999')
+    .text(`${activeEdges.length} edges | ${activePatents.length} patents`);
+
+  // Tick handler
+  sim.on('tick', () => {
+    const curvePath = d => {
+      const sx = d.source.x, sy = d.source.y;
+      const tx = d.target.x, ty = d.target.y;
+      const mx = (sx + tx) / 2;
+      return `M${sx},${sy} Q${mx},${(sy + ty) / 2} ${tx},${ty}`;
+    };
+
+    link.attr('d', curvePath);
+    hitPaths.attr('d', curvePath);
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+
+    // Patent group labels (update less frequently for perf)
+    if (sim.alpha() > 0.05 || sim.alpha() < 0.002) {
+      patentLabels.selectAll('*').remove();
+      activePatents.forEach(p => {
+        const pClaims = nodes.filter(n => n.patent === p.pat);
+        if (pClaims.length === 0) return;
+        const avgY = pClaims.reduce((s, c) => s + c.y, 0) / pClaims.length;
+        const minY = Math.min(...pClaims.map(c => c.y));
+        const maxY = Math.max(...pClaims.map(c => c.y));
+
+        patentLabels.append('text')
+          .attr('x', claimX - 32)
+          .attr('y', avgY + 3)
+          .attr('text-anchor', 'end')
+          .attr('font-size', '9px')
+          .attr('fill', patentColorMap[p.pat])
+          .attr('font-weight', '600')
+          .attr('opacity', 0.8)
+          .text(`Pat ...${p.pat.slice(-6)}`);
+
+        if (pClaims.length > 1) {
+          patentLabels.append('line')
+            .attr('x1', claimX - 24).attr('y1', minY - 2)
+            .attr('x2', claimX - 24).attr('y2', maxY + 2)
+            .attr('stroke', patentColorMap[p.pat])
+            .attr('stroke-width', 1.5).attr('opacity', 0.35);
+        }
+      });
+    }
+  });
+
+  // Patent legend
+  const patLegend = document.getElementById('pat-legend');
+  patLegend.innerHTML = activePatents.map(p =>
+    `<span class="pat-chip"><span class="pat-dot" style="background:${patentColorMap[p.pat]}"></span>
+     Pat ...${p.pat.slice(-6)} (${p.claims.length} claims)</span>`
+  ).join('');
+}
+
+// ======================================================================
+// Sankey view (Patent → Claims → Use Codes flow)
+// ======================================================================
+function renderSankey(nda, year) {
+  const svg = d3.select('#network-svg');
+  svg.selectAll('*').remove();
+  document.getElementById('pat-legend').innerHTML = '';
+  const rect = svg.node().getBoundingClientRect();
+  const w = rect.width;
+
+  const net = DATA.networks[nda];
+  const tl = DATA.timelines[nda];
+  const drug = DATA.drugs.find(d => d.nda === nda);
+  const drugName = drug ? drug.name : nda;
+  if (!net || !tl) return;
+
+  let best = tl[0];
+  for (const entry of tl) { if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry; }
+
+  const activeUCs = new Set((best.ucs || []).map(u => u.c));
+  const indUCmap = {};
+  (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
+
+  const ucFilter = getUCFilter();
+  let filteredEdges = net.edges.filter(e => {
+    if (!activeUCs.has(e.u)) return false;
+
+    if (ucFilter && !e.u.toUpperCase().includes(ucFilter)) return false;
+    return true;
+  });
+
+  // Group: Patent → Claims, Claim → UCs
+  const claimIds = [...new Set(filteredEdges.map(e => e.c))];
+  const ucCodes = [...new Set(filteredEdges.map(e => e.u))];
+
+  // Determine patents from claim IDs
+  const claimToPat = {};
+  net.patents.forEach(p => { p.claims.forEach(c => { claimToPat[c.id] = p.pat; }); });
+
+  const patents = [...new Set(claimIds.map(c => claimToPat[c]).filter(Boolean))];
+  if (patents.length === 0 || ucCodes.length === 0) {
+    svg.attr('viewBox', `0 0 ${w} 400`);
+    svg.append('text').attr('x', w/2).attr('y', 200).attr('text-anchor', 'middle').attr('fill', '#999').text('No data for this year');
+    return;
+  }
+
+  // Layout columns: Patents | Claims | Use Codes
+  const margin = { top: 50, bottom: 20, left: 20, right: 20 };
+  const colPatX = margin.left + 60;
+  const colClaimX = w * 0.4;
+  const colUCX = w - margin.right - 80;
+  const nodeW = 14;
+
+  // Compute flow sizes (sum of similarities)
+  const patClaimFlow = {};  // pat -> claim -> total sim
+  const claimUCFlow = {};   // claim -> uc -> sim
+
+  filteredEdges.forEach(e => {
+    const pat = claimToPat[e.c];
+    if (!pat) return;
+    if (!patClaimFlow[pat]) patClaimFlow[pat] = {};
+    patClaimFlow[pat][e.c] = (patClaimFlow[pat][e.c] || 0) + e.s;
+    if (!claimUCFlow[e.c]) claimUCFlow[e.c] = {};
+    claimUCFlow[e.c][e.u] = e.s;
+  });
+
+  // Node heights proportional to flow
+  const maxNodes = Math.max(patents.length, claimIds.length, ucCodes.length);
+  const h = Math.max(400, Math.min(800, margin.top + margin.bottom + maxNodes * 18));
+  svg.attr('viewBox', `0 0 ${w} ${h}`);
+
+  const contentH = h - margin.top - margin.bottom;
+
+  // Position nodes vertically
+  function positionNodes(items, x) {
+    const gap = 2;
+    const nodeH = Math.max(6, (contentH - gap * (items.length - 1)) / items.length);
+    return items.map((id, i) => ({
+      id, x, y: margin.top + i * (nodeH + gap), h: nodeH, w: nodeW
+    }));
+  }
+
+  const patNodes = positionNodes(patents, colPatX);
+  const claimNodes = positionNodes(claimIds, colClaimX);
+  const ucNodes = positionNodes(ucCodes, colUCX);
+
+  const nodeMap = {};
+  [...patNodes, ...claimNodes, ...ucNodes].forEach(n => { nodeMap[n.id] = n; });
+
+  // Column labels
+  svg.append('text').attr('x', colPatX + nodeW/2).attr('y', margin.top - 12)
+    .attr('text-anchor', 'middle').attr('class', 'axis-label').text('Patents');
+  svg.append('text').attr('x', colClaimX + nodeW/2).attr('y', margin.top - 12)
+    .attr('text-anchor', 'middle').attr('class', 'axis-label').text('Claims');
+  svg.append('text').attr('x', colUCX + nodeW/2).attr('y', margin.top - 12)
+    .attr('text-anchor', 'middle').attr('class', 'axis-label').text('Use Codes');
+
+  // Title
+  svg.append('text').attr('x', w/2).attr('y', 22).attr('text-anchor', 'middle')
+    .attr('font-size', '14px').attr('font-weight', '700').attr('fill', '#1a365d')
+    .text(`${drugName} — ${best.y}`);
+
+  // Draw flows: Patent → Claim
+  const flowG = svg.append('g').attr('opacity', 0.3);
+  patents.forEach((pat, pi) => {
+    const pn = nodeMap[pat];
+    const claims = Object.keys(patClaimFlow[pat] || {});
+    claims.forEach(cid => {
+      const cn = nodeMap[cid];
+      if (!cn) return;
+      flowG.append('path')
+        .attr('d', `M${pn.x + nodeW},${pn.y + pn.h/2} C${(pn.x + cn.x)/2},${pn.y + pn.h/2} ${(pn.x + cn.x)/2},${cn.y + cn.h/2} ${cn.x},${cn.y + cn.h/2}`)
+        .attr('fill', 'none').attr('stroke', PAT_COLORS[pi % PAT_COLORS.length])
+        .attr('stroke-width', Math.max(1, pn.h * 0.6)).attr('stroke-opacity', 0.4);
+    });
+  });
+
+  // Draw flows: Claim → UC
+  filteredEdges.forEach(e => {
+    const cn = nodeMap[e.c];
+    const un = nodeMap['uc_' + e.u] || nodeMap[e.u];
+    if (!cn || !un) return;
+    const pat = claimToPat[e.c];
+    const pi = patents.indexOf(pat);
+    const isTrap = indUCmap[e.u] != null ? e.s > indUCmap[e.u] : null;
+
+    flowG.append('path')
+      .attr('d', `M${cn.x + nodeW},${cn.y + cn.h/2} C${(cn.x + un.x)/2},${cn.y + cn.h/2} ${(cn.x + un.x)/2},${un.y + un.h/2} ${un.x},${un.y + un.h/2}`)
+      .attr('fill', 'none')
+      .attr('stroke', isTrap === true ? '#D55E00' : isTrap === false ? '#009E73' : '#999')
+      .attr('stroke-width', Math.max(0.5, (e.s - 0.85) * 20))
+      .attr('stroke-opacity', 0.15 + (e.s - 0.85) * 4);
+  });
+
+  // Draw patent nodes
+  patNodes.forEach((n, i) => {
+    svg.append('rect').attr('x', n.x).attr('y', n.y).attr('width', nodeW).attr('height', n.h)
+      .attr('fill', PAT_COLORS[i % PAT_COLORS.length]).attr('rx', 2);
+    svg.append('text').attr('x', n.x - 4).attr('y', n.y + n.h/2 + 3)
+      .attr('text-anchor', 'end').attr('font-size', '8px').attr('fill', '#888')
+      .text('...' + n.id.slice(-5));
+  });
+
+  // Draw claim nodes
+  claimNodes.forEach(n => {
+    const pat = claimToPat[n.id];
+    const pi = patents.indexOf(pat);
+    svg.append('rect').attr('x', n.x).attr('y', n.y).attr('width', nodeW).attr('height', n.h)
+      .attr('fill', PAT_COLORS[pi % PAT_COLORS.length]).attr('rx', 1).attr('opacity', 0.7);
+  });
+
+  // Draw UC nodes
+  ucNodes.forEach(n => {
+    svg.append('rect').attr('x', n.x).attr('y', n.y).attr('width', nodeW).attr('height', n.h)
+      .attr('fill', '#E69F00').attr('rx', 2);
+    svg.append('text').attr('x', n.x + nodeW + 4).attr('y', n.y + n.h/2 + 3)
+      .attr('text-anchor', 'start').attr('font-size', Math.min(9, n.h) + 'px').attr('fill', '#555')
+      .text(n.id);
+  });
+
+  // Tooltip
+  const tooltip = document.getElementById('tooltip');
+  svg.on('mousemove', function(e) {
+    const [mx, my] = d3.pointer(e);
+    const hit = [...patNodes, ...claimNodes, ...ucNodes].find(n =>
+      mx >= n.x && mx <= n.x + nodeW && my >= n.y && my <= n.y + n.h
+    );
+    if (hit) {
+      let html = '';
+      if (patents.includes(hit.id)) {
+        html = `<strong>Patent ${hit.id}</strong>`;
+        const nClaims = Object.keys(patClaimFlow[hit.id] || {}).length;
+        html += `<div>${nClaims} claims in view</div>`;
+      } else if (claimIds.includes(hit.id)) {
+        const meta = {};
+        net.patents.forEach(p => p.claims.forEach(c => { if (c.id === hit.id) Object.assign(meta, c, {patent: p.pat}); }));
+        html = `<strong>${meta.kind === 'indep' ? 'Independent' : 'Dependent'} Claim</strong>`;
+        html += `<div>Patent ${meta.patent || '?'}</div>`;
+        if (meta.text) html += `<div class="tt-claim-text">"${meta.text}"</div>`;
+      } else {
+        const desc = net.use_codes.find(u => u.code === hit.id);
+        html = `<strong>${hit.id}</strong>`;
+        if (desc && desc.desc) html += `<div class="tt-claim-text">${desc.desc}</div>`;
+        if (indUCmap[hit.id] != null) html += `<div class="tt-label">Ind-UC</div><div>${indUCmap[hit.id].toFixed(3)}</div>`;
+      }
+      tooltip.innerHTML = html;
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.pageX + 14) + 'px';
+      tooltip.style.top = (e.pageY - 14) + 'px';
+    } else {
+      tooltip.style.display = 'none';
+    }
+  }).on('mouseout', () => { tooltip.style.display = 'none'; });
+}
+
+// ======================================================================
+// Heatmap view (claims x use codes matrix)
+// ======================================================================
+function renderHeatmap(nda, year) {
+  const svg = d3.select('#network-svg');
+  svg.selectAll('*').remove();
+
+  const net = DATA.networks[nda];
+  const tl = DATA.timelines[nda];
+  const drug = DATA.drugs.find(d => d.nda === nda);
+  const drugName = drug ? drug.name : nda;
+
+  if (!net || !tl) return;
+
+  // Find closest year
+  let best = tl[0];
+  for (const entry of tl) { if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry; }
+
+  const activeUCs = new Set((best.ucs || []).map(u => u.c));
+  const indUCmap = {};
+  (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
+
+  // Filter edges
+  const ucFilter = getUCFilter();
+  let filteredEdges = net.edges.filter(e => {
+    if (!activeUCs.has(e.u)) return false;
+
+    if (ucFilter && !e.u.toUpperCase().includes(ucFilter)) return false;
+    return true;
+  });
+
+  // Get unique claims and UCs
+  const claimIds = [...new Set(filteredEdges.map(e => e.c))];
+  const ucCodes = [...new Set(filteredEdges.map(e => e.u))];
+  if (claimIds.length === 0 || ucCodes.length === 0) return;
+
+  // Build similarity matrix
+  const simMap = {};
+  filteredEdges.forEach(e => { simMap[e.c + '|' + e.u] = e.s; });
+
+  // Build claim metadata
+  const claimMeta = {};
+  net.patents.forEach(p => {
+    p.claims.forEach(c => {
+      claimMeta[c.id] = { patent: p.pat, kind: c.kind, text: c.text };
+    });
+  });
+
+  // UC descriptions
+  const ucDescMap = {};
+  net.use_codes.forEach(uc => { ucDescMap[uc.code] = uc.desc; });
+
+  // Sort claims by patent then kind
+  claimIds.sort((a, b) => {
+    const ma = claimMeta[a] || {}, mb = claimMeta[b] || {};
+    if (ma.patent !== mb.patent) return (ma.patent || '').localeCompare(mb.patent || '');
+    if (ma.kind !== mb.kind) return ma.kind === 'indep' ? -1 : 1;
+    return a.localeCompare(b);
+  });
+
+  // Canvas rendering
+  const canvas = document.getElementById('heatmap-canvas');
+  const ctx = canvas.getContext('2d');
+
+  const cellW = Math.max(16, Math.min(40, 600 / ucCodes.length));
+  const cellH = Math.max(8, Math.min(20, 500 / claimIds.length));
+  const labelLeft = 100;
+  const labelTop = 80;
+  const w = labelLeft + ucCodes.length * cellW + 60;
+  const h = labelTop + claimIds.length * cellH + 20;
+
+  canvas.width = w;
+  canvas.height = h;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
+  // Title
+  ctx.fillStyle = '#1a365d';
+  ctx.font = 'bold 14px Segoe UI, Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${drugName} — ${best.y} | ${claimIds.length} claims x ${ucCodes.length} UCs`, 8, 16);
+
+  // Diverging color: scope gap = claim_sim - ind_sim
+  // Red = positive (claim exceeds label), Green = negative (label covers), White = zero
+  function gapColor(gap) {
+    if (gap == null) return '#f0f0f0';
+    const maxGap = 0.06;
+    const t = Math.max(-1, Math.min(1, gap / maxGap));
+    if (t > 0) {
+      return `rgb(255,${Math.round(245 - t * 200)},${Math.round(245 - t * 220)})`;
+    } else {
+      return `rgb(${Math.round(245 + t * 220)},255,${Math.round(245 + t * 200)})`;
+    }
+  }
+
+  // UC labels (top)
+  ctx.save();
+  ctx.font = `${Math.min(10, cellW - 2)}px Arial`;
+  ctx.fillStyle = '#555';
+  ctx.textAlign = 'left';
+  ucCodes.forEach((uc, j) => {
+    ctx.save();
+    ctx.translate(labelLeft + j * cellW + cellW / 2, labelTop - 4);
+    ctx.rotate(-Math.PI / 3);
+    ctx.fillText(uc, 0, 0);
+    ctx.restore();
+  });
+  ctx.restore();
+
+  // Draw cells
+  claimIds.forEach((cid, i) => {
+    const meta = claimMeta[cid] || {};
+    const y = labelTop + i * cellH;
+
+    // Claim label (left)
+    ctx.font = `${Math.min(9, cellH - 1)}px Arial`;
+    ctx.fillStyle = '#777';
+    ctx.textAlign = 'right';
+    const shortLabel = (meta.kind === 'indep' ? 'I' : 'D') + ':' + (meta.patent || '').slice(-5);
+    ctx.fillText(shortLabel, labelLeft - 4, y + cellH - 2);
+
+    // Cells — colored by scope gap (claim_sim - ind_sim)
+    ucCodes.forEach((uc, j) => {
+      const x = labelLeft + j * cellW;
+      const sim = simMap[cid + '|' + uc] || null;
+      const iu = indUCmap[uc] ?? null;
+      const gap = (sim != null && iu != null) ? sim - iu : null;
+      ctx.fillStyle = gapColor(gap);
+      ctx.fillRect(x, y, cellW - 1, cellH - 1);
+
+      // Outline for large positive gap
+      if (gap != null && gap > 0.03) {
+        ctx.strokeStyle = '#D55E00';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, cellW - 1, cellH - 1);
+      }
+    });
+  });
+
+  // Diverging color legend
+  const legX = labelLeft + ucCodes.length * cellW + 10;
+  const legH = Math.min(150, h - labelTop - 20);
+  for (let i = 0; i < legH; i++) {
+    const gv = 0.06 - (i / legH) * 0.12; // +0.06 to -0.06
+    ctx.fillStyle = gapColor(gv);
+    ctx.fillRect(legX, labelTop + i, 12, 1);
+  }
+  ctx.font = '9px Arial';
+  ctx.fillStyle = '#666';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#D55E00';
+  ctx.fillText('+0.06', legX + 16, labelTop + 8);
+  ctx.fillStyle = '#666';
+  ctx.fillText('0', legX + 16, labelTop + legH / 2 + 3);
+  ctx.fillStyle = '#009E73';
+  ctx.fillText('-0.06', legX + 16, labelTop + legH);
+  ctx.fillStyle = '#666';
+  ctx.fillText('gap', legX + 2, labelTop - 4);
+
+  // Tooltip on hover
+  const tooltip = document.getElementById('tooltip');
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const col = Math.floor((mx - labelLeft) / cellW);
+    const row = Math.floor((my - labelTop) / cellH);
+
+    if (col >= 0 && col < ucCodes.length && row >= 0 && row < claimIds.length) {
+      const uc = ucCodes[col];
+      const cid = claimIds[row];
+      const sim = simMap[cid + '|' + uc] || null;
+      const meta = claimMeta[cid] || {};
+      const iu = indUCmap[uc] || null;
+
+      const desc = ucDescMap[uc];
+      const gap = (sim != null && iu != null) ? sim - iu : null;
+
+      let html = `<strong>${uc}</strong>`;
+      if (desc) html += `<div class="tt-claim-text">${desc}</div>`;
+      html += `<div style="margin-top:6px"><strong>${meta.kind === 'indep' ? 'Independent' : 'Dependent'} Claim</strong> (Pat ...${(meta.patent||'').slice(-6)})</div>`;
+      if (meta.text) html += `<div class="tt-claim-text">"${meta.text.substring(0, 200)}${meta.text.length > 200 ? '...' : ''}"</div>`;
+      if (gap != null) {
+        html += `<div class="tt-label" style="margin-top:8px">Scope Gap</div>`;
+        html += `<div class="tt-sim" style="font-size:16px; color:${gap > 0 ? '#D55E00' : '#009E73'}">${gap >= 0 ? '+' : ''}${gap.toFixed(4)}</div>`;
+      }
+      html += `<div class="tt-label">Claim-UC</div><div>${sim != null ? sim.toFixed(4) : 'below threshold'}</div>`;
+      if (iu != null) html += `<div class="tt-label">Indication-UC</div><div>${iu.toFixed(4)}</div>`;
+      tooltip.innerHTML = html;
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.pageX + 14) + 'px';
+      tooltip.style.top = (e.pageY - 14) + 'px';
+    } else {
+      tooltip.style.display = 'none';
+    }
+  };
+  canvas.onmouseout = function() { tooltip.style.display = 'none'; };
+
+  // Patent legend
+  document.getElementById('pat-legend').innerHTML = '';
+}
+</script>
+</body>
+</html>
