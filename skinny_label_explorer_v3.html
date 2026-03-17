@@ -161,7 +161,7 @@
 
 <div class="header">
   <h1>Skinny Label Patent Network Explorer</h1>
-  <p>Claim-level semantic similarity: patent claims, use codes, and label indications (1988-2024)</p>
+  <p>How closely do drug patents align with their approved uses? Semantic analysis of 53,000 patent claims across 1,966 FDA-approved drugs (1988-2024)</p>
 </div>
 
 <div class="main">
@@ -281,12 +281,12 @@
           <button id="view-simple" class="active" title="Simple star graph">Simple</button>
           <button id="view-gat" title="Claim-level bipartite graph">Network</button>
           <button id="view-heatmap" title="Claim-UC similarity matrix">Heatmap</button>
-          <select id="heatmap-mode" style="display:none; font-size:11px; padding:4px; border:1px solid #ccc; border-radius:4px;">
-            <option value="gap">Scope Gap (Claim-UC minus Ind-UC)</option>
-            <option value="claim-uc">Claim-UC Similarity</option>
-            <option value="ind-uc">Indication-UC Similarity</option>
-            <option value="claim-ind">Claim-Indication Similarity</option>
-          </select>
+          <div id="heatmap-mode-pills" class="view-toggle" style="display:none;">
+            <button class="hm-mode active" data-mode="claim-ind">Claim-Ind</button>
+            <button class="hm-mode" data-mode="gap">Scope Gap</button>
+            <button class="hm-mode" data-mode="claim-uc">Claim-UC</button>
+            <button class="hm-mode" data-mode="ind-uc">Ind-UC</button>
+          </div>
           <button id="view-sankey" title="Flow diagram: Patents → Claims → Use Codes">Sankey</button>
         </div>
         <label id="density-control" style="display:none; font-size:12px; white-space:nowrap;">
@@ -341,6 +341,30 @@
         <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Use Code</div>
         <div class="legend-item"><div class="legend-line" style="background:var(--red);opacity:0.7"></div>Claim &gt; Label</div>
         <div class="legend-item"><div class="legend-line" style="background:var(--green);opacity:0.7"></div>Label &ge; Claim</div>
+      </div>
+    </div>
+
+    <div class="panels">
+      <div class="card">
+        <h3>Label Indication Text <span class="help-icon">?<span class="help-tip">The actual "Indications and Usage" text from this drug's FDA-approved label. Each version corresponds to a label revision date. This is the text that claim-indication similarity is computed against.</span></span></h3>
+        <div id="indication-panel" style="max-height:200px;overflow-y:auto;font-size:12px;color:#555;line-height:1.6;">
+          <em>Select a drug to see its label indication text.</em>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Orphan Claims <span class="help-icon">?<span class="help-tip">Claims that don't match any approved indication above the 0.88 cosine threshold. These cover semantic territory NOT in the drug's label — the most policy-relevant finding.</span></span></h3>
+        <div id="orphan-panel" style="max-height:200px;overflow-y:auto;font-size:12px;color:#555;line-height:1.6;">
+          <em>Select a drug to see its orphan claims (if any).</em>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Tools</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="btn-export-csv" style="padding:6px 14px;font-size:12px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:white;">Export Drug Data (CSV)</button>
+        <button id="btn-export-png" style="padding:6px 14px;font-size:12px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:white;">Export Heatmap (PNG)</button>
+        <button id="btn-copy-link" style="padding:6px 14px;font-size:12px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:white;">Copy Shareable Link</button>
       </div>
     </div>
 
@@ -609,7 +633,11 @@ async function loadNetwork(nda) {
     const net = await r.json();
     networkCache[nda] = net;
     if (el) { el.style.display = 'none'; }
-    if (selectedDrug === nda) updateSelectedOverview(nda);
+    if (selectedDrug === nda) {
+      updateSelectedOverview(nda);
+      updateIndicationPanel(nda, net);
+      updateOrphanPanel(nda, net);
+    }
     return net;
   } catch (e) {
     console.warn(`Network load failed for ${nda}:`, e.message);
@@ -1152,11 +1180,15 @@ function init() {
   document.getElementById('view-heatmap').addEventListener('click', () => setView('heatmap'));
   document.getElementById('view-sankey').addEventListener('click', () => setView('sankey'));
 
-  // Heatmap mode selector
-  document.getElementById('heatmap-mode').addEventListener('change', () => {
-    if (selectedDrug && currentView === 'heatmap') {
-      renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
-    }
+  // Heatmap mode pills
+  document.querySelectorAll('.hm-mode').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.hm-mode').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (selectedDrug && currentView === 'heatmap') {
+        renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+      }
+    });
   });
 
   // Top-N per UC control
@@ -1186,8 +1218,13 @@ function init() {
   updateSnapshotCards();
   renderDirectory();
 
-  // Select first drug
-  if (DATA.drugs.length > 0) selectDrug(DATA.drugs[0].nda);
+  // Load from URL or select first drug
+  const urlNDA = new URLSearchParams(window.location.search).get('nda');
+  if (urlNDA && DATA.drugs.some(d => d.nda === urlNDA)) {
+    loadFromURL();
+  } else if (DATA.drugs.length > 0) {
+    selectDrug(DATA.drugs[0].nda);
+  }
 }
 
 let resizeTimer = null;
@@ -1220,7 +1257,7 @@ function setView(view) {
   const usesCanvas = view === 'heatmap';
   document.querySelector('.network-container').style.display = usesCanvas ? 'none' : '';
   document.getElementById('heatmap-wrap').style.display = usesCanvas ? '' : 'none';
-  document.getElementById('heatmap-mode').style.display = usesCanvas ? '' : 'none';
+  document.getElementById('heatmap-mode-pills').style.display = usesCanvas ? '' : 'none';
 
   // Update legend
   const legend = document.getElementById('net-legend');
@@ -1343,6 +1380,7 @@ function selectDrug(nda) {
   selectedDrug = nda;
   const drug = DATA.drugs.find(d => d.nda === nda);
   if (!drug) return;
+  try { updateURL(); } catch(e) {}
 
   document.getElementById('drug-title').textContent = `${drug.name} (NDA ${nda})`;
   document.getElementById('net-title').textContent = `${drug.name}`;
@@ -1352,6 +1390,9 @@ function selectDrug(nda) {
   });
 
   updateSelectedOverview(nda);
+  const cachedNet = networkCache[nda] || null;
+  updateIndicationPanel(nda, cachedNet);
+  updateOrphanPanel(nda, cachedNet);
 
   // Set slider range to drug's actual years
   const tl = DATA.timelines[nda];
@@ -2534,7 +2575,8 @@ function renderHeatmap(nda, year, net) {
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
 
-  const heatmapMode = document.getElementById('heatmap-mode').value || 'gap';
+  const activeHmBtn = document.querySelector('.hm-mode.active');
+  const heatmapMode = activeHmBtn ? activeHmBtn.dataset.mode : 'claim-ind';
   const isClaimInd = heatmapMode === 'claim-ind';
 
   // For claim-indication mode, swap columns from UCs to indications
@@ -2725,6 +2767,132 @@ function renderHeatmap(nda, year, net) {
   // Patent legend
   document.getElementById('pat-legend').innerHTML = '';
 }
+
+// ======================================================================
+// Indication text panel + Orphan claims (#4, #5)
+// ======================================================================
+function updateIndicationPanel(nda, net) {
+  const panel = document.getElementById('indication-panel');
+  if (!net || !net.indications || net.indications.length === 0) {
+    panel.innerHTML = '<em>No indication text available for this drug.</em>';
+    return;
+  }
+  panel.innerHTML = net.indications.map((ind, i) => {
+    const date = ind.date || 'Unknown';
+    const yr = date.length >= 4 ? date.substring(0, 4) : date;
+    return `<div style="margin-bottom:10px;padding:8px;background:#f8f9fb;border-radius:6px;border-left:3px solid #0072B2;">
+      <div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:3px;">Label version ${yr}</div>
+      <div>${ind.text || '<em>Text not available</em>'}</div>
+    </div>`;
+  }).join('');
+}
+
+function updateOrphanPanel(nda, net) {
+  const panel = document.getElementById('orphan-panel');
+  if (!net || !net.ci_claims) {
+    panel.innerHTML = '<em>No claim-indication data available.</em>';
+    return;
+  }
+  const orphans = net.ci_claims.filter(c => c.orphan);
+  if (orphans.length === 0) {
+    panel.innerHTML = `<div style="color:#009E73;font-weight:600;">No orphan claims. All ${net.ci_claims.length} claims match at least one approved indication.</div>`;
+    return;
+  }
+  // Get claim text from patents
+  const claimText = {};
+  net.patents.forEach(p => p.claims.forEach(c => { claimText[c.id] = { text: c.text, patent: p.pat }; }));
+
+  panel.innerHTML = `<div style="color:#D55E00;font-weight:600;margin-bottom:8px;">${orphans.length} of ${net.ci_claims.length} claims (${(100 * orphans.length / net.ci_claims.length).toFixed(0)}%) don't match any approved indication:</div>` +
+    orphans.map(o => {
+      const info = claimText[o.c] || {};
+      return `<div style="margin-bottom:6px;padding:6px;background:#fef2f2;border-radius:4px;border-left:3px solid #D55E00;">
+        <div style="font-size:10px;color:#888;">Pat ${info.patent || '?'} | CI: ${o.ci.toFixed(3)}</div>
+        <div style="font-size:11px;color:#666;">${info.text || o.c}</div>
+      </div>`;
+    }).join('');
+}
+
+// ======================================================================
+// Export functions (#1)
+// ======================================================================
+document.getElementById('btn-export-csv').addEventListener('click', () => {
+  if (!selectedDrug) { alert('Select a drug first'); return; }
+  const net = networkCache[selectedDrug];
+  if (!net) { alert('Network data not loaded for this drug'); return; }
+  const drug = DATA.drugs.find(d => d.nda === selectedDrug);
+  let csv = 'claim_id,patent,use_code,claim_uc_sim,scope_gap,claim_ind_sim,orphan\n';
+  const ciMap = {};
+  (net.ci_claims || []).forEach(c => { ciMap[c.c] = c; });
+  const claimPat = {};
+  net.patents.forEach(p => p.claims.forEach(c => { claimPat[c.id] = p.pat; }));
+  net.edges.forEach(e => {
+    const ci = ciMap[e.c];
+    csv += `${e.c},${claimPat[e.c]||''},${e.u},${e.s},${e.g != null ? e.g : ''},${ci ? ci.ci : ''},${ci ? ci.orphan : ''}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${drug ? drug.name : selectedDrug}_network.csv`;
+  a.click();
+});
+
+document.getElementById('btn-export-png').addEventListener('click', () => {
+  const canvas = document.getElementById('heatmap-canvas');
+  if (!canvas || canvas.width === 0) { alert('Switch to Heatmap view first'); return; }
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  const drug = DATA.drugs.find(d => d.nda === selectedDrug);
+  a.download = `${drug ? drug.name : selectedDrug || 'heatmap'}_heatmap.png`;
+  a.click();
+});
+
+// ======================================================================
+// URL deep-linking (#2)
+// ======================================================================
+function updateURL() {
+  if (!selectedDrug) return;
+  const params = new URLSearchParams();
+  params.set('nda', selectedDrug);
+  params.set('view', currentView);
+  const hmBtn = document.querySelector('.hm-mode.active');
+  if (currentView === 'heatmap' && hmBtn) params.set('mode', hmBtn.dataset.mode);
+  const yr = document.getElementById('year-slider').value;
+  params.set('year', yr);
+  history.replaceState(null, '', '?' + params.toString());
+}
+
+function loadFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const nda = params.get('nda');
+  const view = params.get('view');
+  const mode = params.get('mode');
+  const year = params.get('year');
+  if (view && ['simple', 'gat', 'heatmap', 'sankey'].includes(view)) {
+    setView(view);
+  }
+  if (mode) {
+    document.querySelectorAll('.hm-mode').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+  }
+  if (year) {
+    document.getElementById('year-slider').value = year;
+    document.getElementById('year-label').textContent = year;
+  }
+  if (nda) {
+    setTimeout(() => selectDrug(nda), 100);
+  }
+}
+
+document.getElementById('btn-copy-link').addEventListener('click', () => {
+  updateURL();
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    const btn = document.getElementById('btn-copy-link');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy Shareable Link'; }, 2000);
+  });
+});
+
 </script>
 </body>
 </html>
