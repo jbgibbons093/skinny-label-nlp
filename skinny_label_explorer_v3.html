@@ -516,14 +516,59 @@
 
     <div class="tab-panel" id="panel-methods">
       <div class="card">
-        <h3>Model Architecture & Pipeline</h3>
-        <div class="arch-grid">
-          <div class="arch-card"><h4>Three Text Registers</h4><p>Patent claims, Orange Book use-code descriptions, and approved label indications remain separate semantic objects throughout the interface.</p></div>
-          <div class="arch-card"><h4>Embedding Layer</h4><p><strong>S-PubMedBert-MS-MARCO</strong> embeds all text types in one 768-dimensional space so claim, use-code, and indication comparisons stay directly comparable.</p></div>
-          <div class="arch-card"><h4>Similarity Engine</h4><p>The site now foregrounds Claim↔Indication as the direct patent-label measure, while still exposing Claim↔UC, Indication↔UC, and derived scope gap for context.</p></div>
-          <div class="arch-card"><h4>Website Architecture</h4><p><code>site_data.json</code> powers fast overview panels. Claim-level networks are lazy-loaded per NDA from <code>networks/</code> and cached in-session.</p></div>
-          <div class="arch-card"><h4>Performance Controls</h4><ul><li>Per-drug lazy loading</li><li>Hard SVG caps for dense views</li><li>Reduced Sankey on heavy drugs</li><li>Persistent filters with timeline playback</li></ul></div>
-          <div class="arch-card"><h4>Validation Status</h4><p>Claim-indication is the headline interface metric, but all semantic measures remain exploratory. Manual mapping validation is still pending, so the site emphasizes comparison, inspection, and separability rather than hard classification.</p></div>
+        <h3>Pipeline Overview</h3>
+        <p class="info-text">This analysis measures how closely pharmaceutical patent claims align with approved drug indications and Orange Book use codes. The pipeline processes three types of regulatory text through a shared semantic embedding space, enabling direct quantitative comparison of documents that are normally analyzed only by legal experts.</p>
+        <div style="background:#f4f7fa;border-radius:8px;padding:14px;margin:12px 0;font-family:monospace;font-size:11px;line-height:1.8;color:#475467;overflow-x:auto;">
+          FDA Label PDFs &rarr; Parse Indications Text (17,761 labels)<br>
+          Patent Claims &rarr; Extract Method-of-Use Claims (53,081 independent)<br>
+          Orange Book &rarr; Link Patents &harr; Use Codes (4,421 codes)<br>
+          &emsp;&emsp;&emsp;&darr;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&darr;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&darr;<br>
+          All three text types &rarr; S-PubMedBert-MS-MARCO (768-dim embeddings)<br>
+          &emsp;&emsp;&emsp;&darr;<br>
+          Pairwise cosine similarity: Claim&harr;Indication, Claim&harr;UC, Indication&harr;UC<br>
+          &emsp;&emsp;&emsp;&darr;<br>
+          Per-drug network files (1,955 NDAs) &rarr; Interactive Explorer
+        </div>
+      </div>
+
+      <div class="info-grid">
+        <div class="stack">
+          <div class="card">
+            <h3>Text Sources</h3>
+            <p class="info-text"><strong>Patent Claims (53,081).</strong> Only independent method-of-use claims are included &mdash; these define the enforceable scope of patent protection. Each claim is a single legal sentence describing a method of treating, administering, or preventing something. Dependent claims (175,580) are excluded because they narrow rather than expand patent scope, and empirically they decrease the measured scope gap by only 0.001.</p>
+            <p class="info-text" style="margin-top:8px"><strong>Use Code Descriptions (4,421).</strong> Short text strings from the FDA's Orange Book that describe the approved purpose linked to each patent. These range from generic ("TREATMENT OF HYPERTENSION") to highly specific ("USE OF VASCEPA AS AN ADJUNCT TO STATIN THERAPY TO REDUCE THE RISK OF MYOCARDIAL INFARCTION"). Each use code is linked to a specific patent on a specific drug application.</p>
+            <p class="info-text" style="margin-top:8px"><strong>Label Indications (17,761).</strong> The "Indications and Usage" section extracted from FDA-approved drug labels (PDF). Multiple label versions exist per drug as indications are added or revised over time. This text describes what the drug is actually approved to treat.</p>
+          </div>
+
+          <div class="card">
+            <h3>Embedding Model</h3>
+            <p class="info-text"><strong>S-PubMedBert-MS-MARCO</strong> is a 768-dimensional sentence transformer trained on biomedical literature (PubMed) and fine-tuned for semantic search (MS-MARCO). It maps text of any length into a fixed-size vector where the cosine similarity between two vectors measures semantic relatedness.</p>
+            <p class="info-text" style="margin-top:8px"><strong>Why one model for all text types?</strong> Using the same embedding model for claims, use codes, and indications ensures that cosine similarities are directly comparable across text types. A claim-UC similarity of 0.93 means the same thing as a claim-indication similarity of 0.93.</p>
+            <p class="info-text" style="margin-top:8px"><strong>Similarity floor.</strong> Biomedical embeddings have a floor around 0.82 &mdash; even completely unrelated biomedical texts score this high because they share domain vocabulary. The meaningful range is 0.82&ndash;1.0, which compresses all variation into an 18-point window. Our data storage threshold (0.80) captures everything above noise.</p>
+          </div>
+        </div>
+
+        <div class="stack">
+          <div class="card">
+            <h3>Three Similarity Pairs</h3>
+            <p class="info-text"><strong>Claim &harr; Indication (Primary).</strong> Does the patent claim cover what the drug is actually approved for? A high score means the claim and approved indication describe semantically similar therapeutic uses. A low score means the claim covers territory not in the label &mdash; an "orphan claim." This is the most direct measure of patent-label alignment and the primary result of this analysis.</p>
+            <p class="info-text" style="margin-top:8px"><strong>Claim &harr; Use Code.</strong> Does the patent claim match the use code description listed in the Orange Book? Since use codes are the mechanism through which patents are linked to drug applications, this measures whether the patent's legal language aligns with its stated regulatory purpose.</p>
+            <p class="info-text" style="margin-top:8px"><strong>Indication &harr; Use Code.</strong> Does the drug's approved indication match the use code? When this is low, a use code exists without a corresponding approved indication &mdash; a potential "phantom" use code that may block generic entry without corresponding to a real therapeutic use.</p>
+            <p class="info-text" style="margin-top:8px"><strong>Scope Gap = Claim-UC minus Indication-UC.</strong> A secondary, derived measure. When positive, patent claims semantically exceed what the label covers for that use code. When negative, the label covers the use code better than the claims do.</p>
+          </div>
+
+          <div class="card">
+            <h3>What We Measure at Each Level</h3>
+            <p class="info-text"><strong>Edge level.</strong> Every individual claim paired with every use code (or indication). This is the most granular unit &mdash; it answers "does this specific patent claim reach this specific use code?" There are 375,670 claim-UC edges and thousands of claim-indication edges per drug in the dataset.</p>
+            <p class="info-text" style="margin-top:8px"><strong>Use code level.</strong> For each use code, what is the best-matching claim? The maximum claim similarity across all patents tells us whether any claim in the portfolio covers this use code.</p>
+            <p class="info-text" style="margin-top:8px"><strong>NDA level.</strong> The average across all use codes gives a single summary number for each drug. This is useful for ranking and temporal trends but masks the granular story that individual edges tell.</p>
+          </div>
+
+          <div class="card">
+            <h3>Validation & Limitations</h3>
+            <p class="info-text"><strong>Validation.</strong> A 20-drug sample was tested for construct validity. The embedding model achieves an AUC of 0.704 at distinguishing matched from unmatched indication-UC pairs (proxy labels). Manual review of 349 pairs is pending for the definitive AUC. Per-drug ranking is perfect (AUC 1.000 within each drug).</p>
+            <p class="info-text" style="margin-top:8px"><strong>Limitations.</strong> Semantic similarity is not legal equivalence. Two texts can be semantically similar without one infringing the other, and vice versa. The compressed similarity range (0.82&ndash;1.0) limits the dynamic range of comparisons. 234 of 1,966 treatment NDAs lack scope gap data due to missing labels or parsing failures. This tool supports exploration and hypothesis generation, not definitive legal conclusions.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -532,33 +577,28 @@
       <div class="info-grid">
         <div class="stack">
           <div class="card">
-            <h3>How To Use The Explorer</h3>
-            <div class="pill-row">
-              <span class="pill">1. Pick a drug</span>
-              <span class="pill">2. Click a year in a chart</span>
-              <span class="pill">3. Filter claims, patents, and UCs</span>
-              <span class="pill">4. Compare Network, Heatmap, and Sankey</span>
-            </div>
-            <p class="info-text" style="margin-top:10px">The timeline and filters are designed to work together: once you isolate a set of claims or use codes, the same slice follows you through time and across visual views.</p>
-          </div>
-          <div class="card">
-            <h3>Interpretive Guidance</h3>
-            <p class="info-text">A high claim-indication score means patent claims semantically track approved label indications closely. Scope gap remains useful, but it is treated here as a secondary, use-code-mediated signal rather than the main headline.</p>
+            <h3>How To Use This Tool</h3>
+            <p class="info-text" style="margin-bottom:10px">This explorer is designed for iterative investigation. Start broad, then drill down.</p>
+            <p class="info-text"><strong>1. Pick a drug</strong> from the sidebar (sorted by number of use codes) or search by name, NDA number, or ingredient. The overview card immediately shows claim-indication alignment, scope gap, and use code count.</p>
+            <p class="info-text" style="margin-top:6px"><strong>2. Read the trajectory chart</strong> to see how this drug's claim-UC and indication-UC similarities evolved over its Orange Book lifetime. The blue dashed line is the claim-indication mean &mdash; a static measure of how well the patent portfolio matches the label overall.</p>
+            <p class="info-text" style="margin-top:6px"><strong>3. Switch views</strong> to examine different aspects. <em>Simple</em> shows the use code star graph. <em>Network</em> reveals individual claim-UC connections. <em>Heatmap</em> provides the most analytical view &mdash; switch the dropdown between Claim-Indication, Scope Gap, Claim-UC, and Ind-UC to see different similarity dimensions. <em>Sankey</em> shows the flow from patents through claims to use codes.</p>
+            <p class="info-text" style="margin-top:6px"><strong>4. Use the year slider</strong> (or press Play) to watch the patent portfolio evolve. Use codes appear and disappear as patents are listed and delisted from the Orange Book. The filters below let you isolate specific patents, use codes, or claim types.</p>
+            <p class="info-text" style="margin-top:6px"><strong>5. Click nodes</strong> in Network or Sankey views to filter to that patent or use code. Click the background to reset. The heatmap shows all pairwise values without filtering.</p>
+            <p class="info-text" style="margin-top:6px"><strong>6. Compare drugs</strong> using the batch comparison tool (under Tools) or the Drug Directory tab. Export data as CSV or heatmaps as PNG. Share specific views via the Copy Link button.</p>
           </div>
         </div>
         <div class="stack">
           <div class="card">
-            <h3>Legal & Policy Context</h3>
-            <p class="info-text">Skinny labeling turns on whether patented uses can be separated cleanly from retained label language. This interface helps trace where patent claims, use codes, and indications appear aligned, overlapping, or difficult to disentangle.</p>
+            <h3>Reading the Results</h3>
+            <p class="info-text"><strong>Claim-Indication (primary).</strong> Mean across all drugs: 0.918. This is high &mdash; most patent claims do semantically align with approved indications. Only 4.1% of claims are "orphan" (CI below 0.88). The policy-relevant finding is not the average but the tails: which specific drugs and claims show weak alignment?</p>
+            <p class="info-text" style="margin-top:8px"><strong>Scope Gap (secondary).</strong> Mean: 0.010. Near zero on average, meaning patent claims and label indications cover use codes roughly equally. No structural break was detected at either GSK v. Teva (2021, p=0.924) or Amarin v. Hikma (2024, p=0.901). The legal landmarks did not measurably change the semantic relationship between patents and labels.</p>
+            <p class="info-text" style="margin-top:8px"><strong>Vascepa.</strong> Scope gap is negative (-0.024), meaning the label actually covers use codes better than the patent claims do. This complicates the narrative that Vascepa is a poster child for the skinny label trap &mdash; semantically, the label is well-aligned. The legal problem was about specific claim construction and doctrine of equivalents, not broad semantic mismatch.</p>
           </div>
           <div class="card">
-            <h3>Current Export Limits</h3>
-            <ul style="margin-left:18px; color:#5b6774; font-size:12px; line-height:1.6">
-              <li>No curated therapeutic class variable is present in the website JSON export.</li>
-              <li>Directory filtering therefore uses ingredient and keyword matching as a class proxy.</li>
-              <li>Large claim-level views may render reduced subsets for speed and stability.</li>
-              <li>Some treatment NDAs lack scope-gap output because labels are missing or parsing failed.</li>
-            </ul>
+            <h3>Legal & Policy Context</h3>
+            <p class="info-text">The Hatch-Waxman Act (1984) created "skinny labeling" as a safe harbor: generic manufacturers can omit patented indications from their labels and sell for remaining uses. This worked when patents covered one or two uses. Modern patent thickets &mdash; some drugs have 40+ use codes across dozens of patents &mdash; make it increasingly difficult to carve out patented uses without gutting the label entirely.</p>
+            <p class="info-text" style="margin-top:8px">In <em>GSK v. Teva</em> (2021), the Federal Circuit found Teva liable for inducing infringement of carvedilol's heart failure patent even though Teva had carved that indication from its label. The court held that the generic's remaining label language still encouraged the patented use. This ruling raised the question: can skinny labeling ever work if patent scope and label language overlap semantically?</p>
+            <p class="info-text" style="margin-top:8px">This tool provides one way to measure that overlap. Where claim-indication similarity is high and scope gap is near zero, patent claims and label indications describe essentially the same thing &mdash; making carve-outs difficult. Where they diverge, there may be room for safe generic entry.</p>
           </div>
         </div>
       </div>
