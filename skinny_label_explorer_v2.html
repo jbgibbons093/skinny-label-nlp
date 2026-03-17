@@ -110,7 +110,7 @@
       <div class="stat-grid">
         <div class="stat"><div class="value" id="s-ndas">-</div><div class="label">Treatment NDAs</div></div>
         <div class="stat"><div class="value" id="s-years">-</div><div class="label">Years</div></div>
-        <div class="stat"><div class="value" id="s-trap">-</div><div class="label">Claims Exceed Label</div></div>
+        <div class="stat"><div class="value" id="s-trap">-</div><div class="label">Scope Gap &gt; 0</div></div>
         <div class="stat"><div class="value" id="s-control">-</div><div class="label">Control NDAs</div></div>
       </div>
     </div>
@@ -132,7 +132,7 @@
         <div class="legend">
           <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Claim-UC</div>
           <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Ind-UC</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Trap Score</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Scope Gap</div>
         </div>
       </div>
       <div class="card">
@@ -156,8 +156,9 @@
         </div>
         <div class="view-toggle">
           <button id="view-simple" class="active" title="Simple star graph">Simple</button>
-          <button id="view-gat" title="Claim-level bipartite graph">GAT</button>
+          <button id="view-gat" title="Claim-level bipartite graph">Network</button>
           <button id="view-heatmap" title="Claim-UC similarity matrix">Heatmap</button>
+          <button id="view-sankey" title="Flow diagram: Patents → Claims → Use Codes">Sankey</button>
         </div>
         <label id="dep-toggle" style="display:none; font-size:12px; cursor:pointer; user-select:none;">
           <input type="checkbox" id="show-dep" checked> Dependent claims
@@ -165,6 +166,7 @@
         <label id="density-control" style="display:none; font-size:12px; white-space:nowrap;">
           Top <input type="number" id="top-n-per-uc" value="20" min="1" max="999" style="width:48px; font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:4px;"> per UC
         </label>
+        <input type="text" id="uc-filter" placeholder="Filter UCs..." style="display:none; width:100px; padding:4px 8px; font-size:12px; border:1px solid #ccc; border-radius:4px;">
       </div>
       <div class="network-container"><svg id="network-svg"></svg></div>
       <div class="heatmap-container" id="heatmap-wrap" style="display:none"><canvas id="heatmap-canvas"></canvas></div>
@@ -182,7 +184,7 @@
       <p class="info-text">
         This tool visualizes the semantic relationship between <strong>individual patent claims</strong>,
         Orange Book use codes, and approved label indications for FDA-approved drugs.
-        The <strong>scope gap</strong> (formerly "trap score") measures how far patent claims semantically
+        The <strong>scope gap</strong> (formerly "scope gap") measures how far patent claims semantically
         exceed what the drug's label actually covers.
       </p>
       <div class="methods-toggle" id="methods-toggle" onclick="document.getElementById('methods-body').classList.toggle('open'); this.textContent = this.textContent.includes('+') ? '- Hide methods' : '+ Show methods'">+ Show methods</div>
@@ -197,7 +199,7 @@
           <li><strong>Scope Gap:</strong> = Claim-UC similarity minus Indication-UC similarity. Positive = patent claims reach beyond label.</li>
         </ul>
 
-        <h4>Scope Gap (formerly Trap Score)</h4>
+        <h4>Scope Gap (formerly Scope Gap)</h4>
         <code>scope_gap = mean(max_claim_sim_per_UC) - mean(indication_UC_sim)</code><br>
         For each use code, we find the single best-matching claim (max across all independent + dependent claims).
         The average of these per-UC maxima is compared to the average indication-UC similarity.
@@ -314,6 +316,19 @@ function init() {
   document.getElementById('view-simple').addEventListener('click', () => setView('simple'));
   document.getElementById('view-gat').addEventListener('click', () => setView('gat'));
   document.getElementById('view-heatmap').addEventListener('click', () => setView('heatmap'));
+  document.getElementById('view-sankey').addEventListener('click', () => setView('sankey'));
+
+  // UC filter
+  let ucFilterTimer = null;
+  document.getElementById('uc-filter').addEventListener('input', () => {
+    clearTimeout(ucFilterTimer);
+    ucFilterTimer = setTimeout(() => {
+      if (selectedDrug && currentView !== 'simple') {
+        const year = parseInt(document.getElementById('year-slider').value);
+        renderNetwork(selectedDrug, year);
+      }
+    }, 200);
+  });
 
   // Dependent claim toggle
   document.getElementById('show-dep').addEventListener('change', e => {
@@ -332,11 +347,12 @@ function init() {
     }
   });
 
-  // Disable GAT if no network data
+  // Disable advanced views if no network data
   if (!DATA.networks) {
-    document.getElementById('view-gat').disabled = true;
-    document.getElementById('view-gat').title = 'GAT data not available';
-    document.getElementById('view-gat').style.opacity = '0.4';
+    ['view-gat', 'view-heatmap', 'view-sankey'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
+    });
   }
 
   // Draw aggregate trend
@@ -351,15 +367,19 @@ function init() {
 // ======================================================================
 function setView(view) {
   currentView = view;
-  document.getElementById('view-simple').classList.toggle('active', view === 'simple');
-  document.getElementById('view-gat').classList.toggle('active', view === 'gat');
-  document.getElementById('view-heatmap').classList.toggle('active', view === 'heatmap');
-  document.getElementById('dep-toggle').style.display = (view === 'gat' || view === 'heatmap') ? '' : 'none';
+  ['simple', 'gat', 'heatmap', 'sankey'].forEach(v => {
+    const btn = document.getElementById('view-' + v);
+    if (btn) btn.classList.toggle('active', view === v);
+  });
+  const isAdvanced = view !== 'simple';
+  document.getElementById('dep-toggle').style.display = isAdvanced ? '' : 'none';
   document.getElementById('density-control').style.display = view === 'gat' ? '' : 'none';
+  document.getElementById('uc-filter').style.display = isAdvanced ? '' : 'none';
 
   // Show/hide SVG vs heatmap canvas
-  document.querySelector('.network-container').style.display = view === 'heatmap' ? 'none' : '';
-  document.getElementById('heatmap-wrap').style.display = view === 'heatmap' ? '' : 'none';
+  const usesCanvas = view === 'heatmap';
+  document.querySelector('.network-container').style.display = usesCanvas ? 'none' : '';
+  document.getElementById('heatmap-wrap').style.display = usesCanvas ? '' : 'none';
 
   // Update legend
   const legend = document.getElementById('net-legend');
@@ -677,11 +697,19 @@ function drawDrugChart(nda) {
 // ======================================================================
 // Network rendering (dispatcher)
 // ======================================================================
+// Get active UC filter text
+function getUCFilter() {
+  const f = document.getElementById('uc-filter').value.trim().toUpperCase();
+  return f || null;
+}
+
 function renderNetwork(nda, year) {
   if (currentSim) { currentSim.stop(); currentSim = null; }
 
   if (currentView === 'heatmap' && DATA.networks && DATA.networks[nda]) {
     renderHeatmap(nda, year);
+  } else if (currentView === 'sankey' && DATA.networks && DATA.networks[nda]) {
+    renderSankey(nda, year);
   } else if (currentView === 'gat' && DATA.networks && DATA.networks[nda]) {
     renderGATNetwork(nda, year);
   } else {
@@ -785,7 +813,7 @@ function renderSimpleNetwork(nda, year) {
   if (best.ts != null) {
     svg.append('text').attr('x', w - 12).attr('y', 44).attr('text-anchor', 'end')
       .attr('font-size', '13px').attr('fill', best.ts >= 0 ? '#D55E00' : '#009E73')
-      .text(`Trap: ${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}`);
+      .text(`Gap: ${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}`);
   }
 
   sim.on('tick', () => {
@@ -837,11 +865,15 @@ function renderGATNetwork(nda, year) {
     return;
   }
 
-  // Filter edges: active UCs, claim type, then top-N per UC
+  // Filter edges: active UCs, claim type, UC filter, then top-N per UC
   const topN = parseInt(document.getElementById('top-n-per-uc').value) || 20;
-  let filteredEdges = net.edges.filter(e =>
-    activeUCs.has(e.u) && (showDepClaims || e.k !== 'dep')
-  );
+  const ucFilter = getUCFilter();
+  let filteredEdges = net.edges.filter(e => {
+    if (!activeUCs.has(e.u)) return false;
+    if (!showDepClaims && e.k === 'dep') return false;
+    if (ucFilter && !e.u.toUpperCase().includes(ucFilter)) return false;
+    return true;
+  });
 
   // Apply top-N per UC (sort by sim descending, keep top N for each UC)
   const byUC = {};
@@ -922,7 +954,7 @@ function renderGATNetwork(nda, year) {
     links.push({
       source: e.c, target: `uc_${e.u}`,
       sim: e.s, iu: iu,
-      isTrap: iu !== null ? (e.s > iu) : null,
+      isGap: iu !== null ? (e.s > iu) : null,
     });
   });
 
@@ -1105,7 +1137,7 @@ function renderGATNetwork(nda, year) {
   if (best.ts != null) {
     svg.append('text').attr('x', w - 12).attr('y', 40).attr('text-anchor', 'end')
       .attr('font-size', '13px').attr('fill', best.ts >= 0 ? '#D55E00' : '#009E73')
-      .text(`Trap: ${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}`);
+      .text(`Gap: ${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}`);
   }
   svg.append('text').attr('x', w - 12).attr('y', 56).attr('text-anchor', 'end')
     .attr('font-size', '11px').attr('fill', '#999')
@@ -1164,6 +1196,201 @@ function renderGATNetwork(nda, year) {
 }
 
 // ======================================================================
+// Sankey view (Patent → Claims → Use Codes flow)
+// ======================================================================
+function renderSankey(nda, year) {
+  const svg = d3.select('#network-svg');
+  svg.selectAll('*').remove();
+  document.getElementById('pat-legend').innerHTML = '';
+  const rect = svg.node().getBoundingClientRect();
+  const w = rect.width;
+
+  const net = DATA.networks[nda];
+  const tl = DATA.timelines[nda];
+  const drug = DATA.drugs.find(d => d.nda === nda);
+  const drugName = drug ? drug.name : nda;
+  if (!net || !tl) return;
+
+  let best = tl[0];
+  for (const entry of tl) { if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry; }
+
+  const activeUCs = new Set((best.ucs || []).map(u => u.c));
+  const indUCmap = {};
+  (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
+
+  const ucFilter = getUCFilter();
+  let filteredEdges = net.edges.filter(e => {
+    if (!activeUCs.has(e.u)) return false;
+    if (!showDepClaims && e.k === 'dep') return false;
+    if (ucFilter && !e.u.toUpperCase().includes(ucFilter)) return false;
+    return true;
+  });
+
+  // Group: Patent → Claims, Claim → UCs
+  const claimIds = [...new Set(filteredEdges.map(e => e.c))];
+  const ucCodes = [...new Set(filteredEdges.map(e => e.u))];
+
+  // Determine patents from claim IDs
+  const claimToPat = {};
+  net.patents.forEach(p => { p.claims.forEach(c => { claimToPat[c.id] = p.pat; }); });
+
+  const patents = [...new Set(claimIds.map(c => claimToPat[c]).filter(Boolean))];
+  if (patents.length === 0 || ucCodes.length === 0) {
+    svg.attr('viewBox', `0 0 ${w} 400`);
+    svg.append('text').attr('x', w/2).attr('y', 200).attr('text-anchor', 'middle').attr('fill', '#999').text('No data for this year');
+    return;
+  }
+
+  // Layout columns: Patents | Claims | Use Codes
+  const margin = { top: 50, bottom: 20, left: 20, right: 20 };
+  const colPatX = margin.left + 60;
+  const colClaimX = w * 0.4;
+  const colUCX = w - margin.right - 80;
+  const nodeW = 14;
+
+  // Compute flow sizes (sum of similarities)
+  const patClaimFlow = {};  // pat -> claim -> total sim
+  const claimUCFlow = {};   // claim -> uc -> sim
+
+  filteredEdges.forEach(e => {
+    const pat = claimToPat[e.c];
+    if (!pat) return;
+    if (!patClaimFlow[pat]) patClaimFlow[pat] = {};
+    patClaimFlow[pat][e.c] = (patClaimFlow[pat][e.c] || 0) + e.s;
+    if (!claimUCFlow[e.c]) claimUCFlow[e.c] = {};
+    claimUCFlow[e.c][e.u] = e.s;
+  });
+
+  // Node heights proportional to flow
+  const maxNodes = Math.max(patents.length, claimIds.length, ucCodes.length);
+  const h = Math.max(400, Math.min(800, margin.top + margin.bottom + maxNodes * 18));
+  svg.attr('viewBox', `0 0 ${w} ${h}`);
+
+  const contentH = h - margin.top - margin.bottom;
+
+  // Position nodes vertically
+  function positionNodes(items, x) {
+    const gap = 2;
+    const nodeH = Math.max(6, (contentH - gap * (items.length - 1)) / items.length);
+    return items.map((id, i) => ({
+      id, x, y: margin.top + i * (nodeH + gap), h: nodeH, w: nodeW
+    }));
+  }
+
+  const patNodes = positionNodes(patents, colPatX);
+  const claimNodes = positionNodes(claimIds, colClaimX);
+  const ucNodes = positionNodes(ucCodes, colUCX);
+
+  const nodeMap = {};
+  [...patNodes, ...claimNodes, ...ucNodes].forEach(n => { nodeMap[n.id] = n; });
+
+  // Column labels
+  svg.append('text').attr('x', colPatX + nodeW/2).attr('y', margin.top - 12)
+    .attr('text-anchor', 'middle').attr('class', 'axis-label').text('Patents');
+  svg.append('text').attr('x', colClaimX + nodeW/2).attr('y', margin.top - 12)
+    .attr('text-anchor', 'middle').attr('class', 'axis-label').text('Claims');
+  svg.append('text').attr('x', colUCX + nodeW/2).attr('y', margin.top - 12)
+    .attr('text-anchor', 'middle').attr('class', 'axis-label').text('Use Codes');
+
+  // Title
+  svg.append('text').attr('x', w/2).attr('y', 22).attr('text-anchor', 'middle')
+    .attr('font-size', '14px').attr('font-weight', '700').attr('fill', '#1a365d')
+    .text(`${drugName} — ${best.y}`);
+
+  // Draw flows: Patent → Claim
+  const flowG = svg.append('g').attr('opacity', 0.3);
+  patents.forEach((pat, pi) => {
+    const pn = nodeMap[pat];
+    const claims = Object.keys(patClaimFlow[pat] || {});
+    claims.forEach(cid => {
+      const cn = nodeMap[cid];
+      if (!cn) return;
+      flowG.append('path')
+        .attr('d', `M${pn.x + nodeW},${pn.y + pn.h/2} C${(pn.x + cn.x)/2},${pn.y + pn.h/2} ${(pn.x + cn.x)/2},${cn.y + cn.h/2} ${cn.x},${cn.y + cn.h/2}`)
+        .attr('fill', 'none').attr('stroke', PAT_COLORS[pi % PAT_COLORS.length])
+        .attr('stroke-width', Math.max(1, pn.h * 0.6)).attr('stroke-opacity', 0.4);
+    });
+  });
+
+  // Draw flows: Claim → UC
+  filteredEdges.forEach(e => {
+    const cn = nodeMap[e.c];
+    const un = nodeMap['uc_' + e.u] || nodeMap[e.u];
+    if (!cn || !un) return;
+    const pat = claimToPat[e.c];
+    const pi = patents.indexOf(pat);
+    const isTrap = indUCmap[e.u] != null ? e.s > indUCmap[e.u] : null;
+
+    flowG.append('path')
+      .attr('d', `M${cn.x + nodeW},${cn.y + cn.h/2} C${(cn.x + un.x)/2},${cn.y + cn.h/2} ${(cn.x + un.x)/2},${un.y + un.h/2} ${un.x},${un.y + un.h/2}`)
+      .attr('fill', 'none')
+      .attr('stroke', isTrap === true ? '#D55E00' : isTrap === false ? '#009E73' : '#999')
+      .attr('stroke-width', Math.max(0.5, (e.s - 0.85) * 20))
+      .attr('stroke-opacity', 0.15 + (e.s - 0.85) * 4);
+  });
+
+  // Draw patent nodes
+  patNodes.forEach((n, i) => {
+    svg.append('rect').attr('x', n.x).attr('y', n.y).attr('width', nodeW).attr('height', n.h)
+      .attr('fill', PAT_COLORS[i % PAT_COLORS.length]).attr('rx', 2);
+    svg.append('text').attr('x', n.x - 4).attr('y', n.y + n.h/2 + 3)
+      .attr('text-anchor', 'end').attr('font-size', '8px').attr('fill', '#888')
+      .text('...' + n.id.slice(-5));
+  });
+
+  // Draw claim nodes
+  claimNodes.forEach(n => {
+    const pat = claimToPat[n.id];
+    const pi = patents.indexOf(pat);
+    svg.append('rect').attr('x', n.x).attr('y', n.y).attr('width', nodeW).attr('height', n.h)
+      .attr('fill', PAT_COLORS[pi % PAT_COLORS.length]).attr('rx', 1).attr('opacity', 0.7);
+  });
+
+  // Draw UC nodes
+  ucNodes.forEach(n => {
+    svg.append('rect').attr('x', n.x).attr('y', n.y).attr('width', nodeW).attr('height', n.h)
+      .attr('fill', '#E69F00').attr('rx', 2);
+    svg.append('text').attr('x', n.x + nodeW + 4).attr('y', n.y + n.h/2 + 3)
+      .attr('text-anchor', 'start').attr('font-size', Math.min(9, n.h) + 'px').attr('fill', '#555')
+      .text(n.id);
+  });
+
+  // Tooltip
+  const tooltip = document.getElementById('tooltip');
+  svg.on('mousemove', function(e) {
+    const [mx, my] = d3.pointer(e);
+    const hit = [...patNodes, ...claimNodes, ...ucNodes].find(n =>
+      mx >= n.x && mx <= n.x + nodeW && my >= n.y && my <= n.y + n.h
+    );
+    if (hit) {
+      let html = '';
+      if (patents.includes(hit.id)) {
+        html = `<strong>Patent ${hit.id}</strong>`;
+        const nClaims = Object.keys(patClaimFlow[hit.id] || {}).length;
+        html += `<div>${nClaims} claims in view</div>`;
+      } else if (claimIds.includes(hit.id)) {
+        const meta = {};
+        net.patents.forEach(p => p.claims.forEach(c => { if (c.id === hit.id) Object.assign(meta, c, {patent: p.pat}); }));
+        html = `<strong>${meta.kind === 'indep' ? 'Independent' : 'Dependent'} Claim</strong>`;
+        html += `<div>Patent ${meta.patent || '?'}</div>`;
+        if (meta.text) html += `<div class="tt-claim-text">"${meta.text}"</div>`;
+      } else {
+        const desc = net.use_codes.find(u => u.code === hit.id);
+        html = `<strong>${hit.id}</strong>`;
+        if (desc && desc.desc) html += `<div class="tt-claim-text">${desc.desc}</div>`;
+        if (indUCmap[hit.id] != null) html += `<div class="tt-label">Ind-UC</div><div>${indUCmap[hit.id].toFixed(3)}</div>`;
+      }
+      tooltip.innerHTML = html;
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.pageX + 14) + 'px';
+      tooltip.style.top = (e.pageY - 14) + 'px';
+    } else {
+      tooltip.style.display = 'none';
+    }
+  }).on('mouseout', () => { tooltip.style.display = 'none'; });
+}
+
+// ======================================================================
 // Heatmap view (claims x use codes matrix)
 // ======================================================================
 function renderHeatmap(nda, year) {
@@ -1186,9 +1413,13 @@ function renderHeatmap(nda, year) {
   (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
 
   // Filter edges
-  let filteredEdges = net.edges.filter(e =>
-    activeUCs.has(e.u) && (showDepClaims || e.k !== 'dep')
-  );
+  const ucFilter = getUCFilter();
+  let filteredEdges = net.edges.filter(e => {
+    if (!activeUCs.has(e.u)) return false;
+    if (!showDepClaims && e.k === 'dep') return false;
+    if (ucFilter && !e.u.toUpperCase().includes(ucFilter)) return false;
+    return true;
+  });
 
   // Get unique claims and UCs
   const claimIds = [...new Set(filteredEdges.map(e => e.c))];
