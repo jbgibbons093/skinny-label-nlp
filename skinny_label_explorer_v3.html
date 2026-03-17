@@ -194,12 +194,50 @@
     <div class="card">
       <div class="tabbar">
         <button class="active" data-tab="explorer" id="tab-explorer">Explorer</button>
+        <button data-tab="aggregate" id="tab-aggregate">Aggregate</button>
         <button data-tab="directory" id="tab-directory">Drug Directory</button>
         <button data-tab="methods" id="tab-methods">Model Architecture</button>
         <button data-tab="context" id="tab-context">Interpretation & Context</button>
       </div>
     </div>
 
+    <!-- AGGREGATE TAB -->
+    <div class="tab-panel" id="panel-aggregate">
+      <div class="panels">
+        <div class="card">
+          <h3>Aggregate Temporal Trends
+            <span class="help-icon">?<span class="help-tip">Shows how claim-UC similarity (red), indication-UC similarity (green), and scope gap (purple dashed) have evolved across all drugs from 1988-2024. The blue dashed line shows the average claim-indication similarity. Vertical lines mark GSK v. Teva (2021) and Amarin v. Hikma (2024).</span></span>
+          </h3>
+          <canvas id="trend-chart"></canvas>
+          <div class="chart-note" id="trend-note">Hover for year-level detail. Click a year to sync the explorer timeline.</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Claim-UC</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Ind-UC</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Claim-Ind</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Scope Gap</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Claim-Indication Distribution <span class="help-icon">?<span class="help-tip">Histogram of mean claim-indication similarity across all NDAs with CI data. The dashed line marks the 0.88 threshold — drugs below it have weak claim-label alignment. Red bars = below threshold. The marker shows the currently selected drug.</span></span></h3>
+          <canvas id="ci-dist-chart" style="width:100%;height:200px;"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Aggregate Year Snapshot</h3>
+        <div class="snapshot-meta" id="agg-snapshot-meta">Select a year from the charts or timeline.</div>
+        <div class="snapshot-row">
+          <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="agg-ci">-</span></div>
+          <div class="snapshot-pill"><span class="label">Orphan Rate</span><span class="value" id="agg-orphan">-</span></div>
+          <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="agg-cu">-</span></div>
+          <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="agg-iu">-</span></div>
+          <div class="snapshot-pill"><span class="label">NDAs</span><span class="value" id="agg-ndas">-</span></div>
+        </div>
+        <div class="snapshot-foot" id="agg-foot">Click a year in the chart to see its aggregate metrics.</div>
+      </div>
+    </div>
+
+    <!-- EXPLORER TAB -->
     <div class="tab-panel active" id="panel-explorer">
     <div class="card">
       <h3>Selected Drug Overview</h3>
@@ -211,59 +249,27 @@
         <div class="detail-stat"><div class="label">Orphan Claims</div><div class="value" id="d-orphan">-</div><div class="sub" id="d-orphan-sub">Claims not matching any indication</div></div>
       </div>
     </div>
-    <div class="panels">
-      <div class="card">
-        <h3>Aggregate Temporal Trends
-          <span class="help-icon">?<span class="help-tip">These temporal trends remain use-code anchored because the current export provides claim-indication primarily at the NDA level rather than as a year-stamped panel. Claim-indication is therefore surfaced throughout the summaries, directory, drug list, and claim-level tooltips while this chart continues to show Claim-UC, Indication-UC, and their derived gap over time.</span></span>
-        </h3>
-        <canvas id="trend-chart"></canvas>
-        <div class="chart-note" id="trend-note">Hover for year-level detail. Click a year to sync the network timeline.</div>
-        <div class="legend">
-          <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Claim-UC</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Ind-UC</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Claim-Ind</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Scope Gap</div>
-        </div>
-      </div>
-      <div class="card">
-        <h3>Drug Similarity Trajectory: <span id="drug-title">Select a drug</span>
-          <span class="help-icon">?<span class="help-tip">This chart still traces the drug's year-by-year use-code relationships. Claim-indication is now the headline metric in the surrounding summaries and claim-level tooltips, because it is stored at the claim/NDA level in the current website export rather than as a full year-stamped series.</span></span>
-        </h3>
-        <canvas id="drug-chart"></canvas>
-        <div class="chart-note" id="drug-note">Hover for year detail. Click a point to move the timeline and network there.</div>
-      </div>
+    <div class="card">
+      <h3>Drug Similarity Trajectory: <span id="drug-title">Select a drug</span>
+        <span class="help-icon">?<span class="help-tip">Year-by-year use-code relationships. Red = Claim-UC, Green = Ind-UC, Purple dashed = Scope Gap. The blue dashed horizontal line shows this drug's claim-indication mean.</span></span>
+      </h3>
+      <canvas id="drug-chart"></canvas>
+      <div class="chart-note" id="drug-note">Hover for year detail. Click a point to move the timeline and network there.</div>
     </div>
 
     <div class="card">
-      <h3>Interactive Snapshot</h3>
-      <div class="snapshot-grid">
-        <div class="snapshot-card">
-          <h4>Aggregate Year Snapshot</h4>
-          <div class="snapshot-meta" id="agg-snapshot-meta">Select a year from the charts or timeline.</div>
-          <div class="snapshot-row">
-            <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="agg-ci">-</span></div>
-            <div class="snapshot-pill"><span class="label">Orphan Rate</span><span class="value" id="agg-orphan">-</span></div>
-            <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="agg-cu">-</span></div>
-            <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="agg-iu">-</span></div>
-            <div class="snapshot-pill"><span class="label">NDAs</span><span class="value" id="agg-ndas">-</span></div>
-          </div>
-          <div class="snapshot-foot" id="agg-foot">Temporal trends are interactive: click a year to sync the explorer below.</div>
-        </div>
-        <div class="snapshot-card">
-          <h4>Selected Drug-Year Snapshot</h4>
-          <div class="snapshot-meta" id="drug-snapshot-meta">Select a drug to inspect its active year slice.</div>
-          <div class="snapshot-row">
-            <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="drug-ci">-</span></div>
-            <div class="snapshot-pill"><span class="label">Orphan Claims</span><span class="value" id="drug-orphan">-</span></div>
-            <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="drug-cu">-</span></div>
-            <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="drug-iu">-</span></div>
-            <div class="snapshot-pill"><span class="label">Scope Gap</span><span class="value" id="drug-gap">-</span></div>
-            <div class="snapshot-pill"><span class="label">Use Codes</span><span class="value" id="drug-active-ucs">-</span></div>
-            <div class="snapshot-pill"><span class="label">Patents</span><span class="value" id="drug-active-pats">-</span></div>
-          </div>
-          <div class="snapshot-foot" id="drug-foot">The year slider, play control, and filters stay in sync.</div>
-        </div>
+      <h3>Drug-Year Snapshot</h3>
+      <div class="snapshot-meta" id="drug-snapshot-meta">Select a drug to inspect its active year slice.</div>
+      <div class="snapshot-row">
+        <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="drug-ci">-</span></div>
+        <div class="snapshot-pill"><span class="label">Orphan Claims</span><span class="value" id="drug-orphan">-</span></div>
+        <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="drug-cu">-</span></div>
+        <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="drug-iu">-</span></div>
+        <div class="snapshot-pill"><span class="label">Scope Gap</span><span class="value" id="drug-gap">-</span></div>
+        <div class="snapshot-pill"><span class="label">Use Codes</span><span class="value" id="drug-active-ucs">-</span></div>
+        <div class="snapshot-pill"><span class="label">Patents</span><span class="value" id="drug-active-pats">-</span></div>
       </div>
+      <div class="snapshot-foot" id="drug-foot">The year slider, play control, and filters stay in sync.</div>
     </div>
 
     <div class="card" style="position:relative">
@@ -367,10 +373,6 @@
     </div>
 
     <div class="panels">
-      <div class="card">
-        <h3>Claim-Indication Distribution <span class="help-icon">?<span class="help-tip">Histogram of mean claim-indication similarity across all NDAs with CI data. Shows how well patent claims align with approved indications across the full drug landscape. The dashed line marks the 0.88 threshold — drugs below it have weak claim-label alignment.</span></span></h3>
-        <canvas id="ci-dist-chart" style="width:100%;height:200px;"></canvas>
-      </div>
       <div class="card">
         <h3>Tools</h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
@@ -967,8 +969,11 @@ function setTab(tab) {
     panel.classList.toggle('active', panel.id === `panel-${tab}`);
   });
   if (tab === 'directory') renderDirectory();
-  if (tab === 'explorer') {
+  if (tab === 'aggregate') {
     drawTrendChart();
+    drawCIDistribution();
+  }
+  if (tab === 'explorer') {
     if (selectedDrug) drawDrugChart(selectedDrug);
   }
 }
