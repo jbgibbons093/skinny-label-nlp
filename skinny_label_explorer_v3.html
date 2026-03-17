@@ -2055,7 +2055,7 @@ function renderGATNetwork(nda, year, net, isHeavy) {
           .attr('fill', patentColorMap[p.pat])
           .attr('font-weight', '600')
           .attr('opacity', 0.8)
-          .text(`Pat ...${p.pat.slice(-6)}`);
+          .text(`Pat ${p.pat}`);
 
         if (pClaims.length > 1) {
           patentLabels.append('line')
@@ -2072,7 +2072,7 @@ function renderGATNetwork(nda, year, net, isHeavy) {
   const patLegend = document.getElementById('pat-legend');
   patLegend.innerHTML = activePatents.map(p =>
     `<span class="pat-chip"><span class="pat-dot" style="background:${patentColorMap[p.pat]}"></span>
-     Pat ...${p.pat.slice(-6)} (${p.claims.length} claims)</span>`
+     Pat ${p.pat} (${p.claims.length} claims)</span>`
   ).join('');
 }
 
@@ -2230,7 +2230,7 @@ function renderSankey(nda, year, net, isHeavy) {
       .attr('fill', PAT_COLORS[i % PAT_COLORS.length]).attr('rx', 2);
     svg.append('text').attr('x', n.x - 4).attr('y', n.y + n.h/2 + 3)
       .attr('text-anchor', 'end').attr('font-size', '8px').attr('fill', '#888')
-      .text('...' + n.id.slice(-5));
+      .text(n.id);
   });
 
   // Draw claim nodes
@@ -2413,7 +2413,7 @@ function renderHeatmap(nda, year, net) {
     ctx.font = `${Math.min(9, cellH - 1)}px Arial`;
     ctx.fillStyle = '#777';
     ctx.textAlign = 'right';
-    const shortLabel = (meta.patent || '').slice(-6);
+    const shortLabel = meta.patent || '';
     ctx.fillText(shortLabel, labelLeft - 4, y + cellH - 2);
 
     // Cells — colored by scope gap (claim_sim - ind_sim)
@@ -2477,7 +2477,7 @@ function renderHeatmap(nda, year, net) {
 
       let html = `<strong>${uc}</strong>`;
       if (desc) html += `<div class="tt-claim-text">${desc}</div>`;
-      html += `<div style="margin-top:6px"><strong>Claim</strong> (Pat ...${(meta.patent||'').slice(-6)})</div>`;
+      html += `<div style="margin-top:6px"><strong>Claim</strong> (Pat ${meta.patent||''})</div>`;
       if (meta.text) html += `<div class="tt-claim-text">"${meta.text.substring(0, 200)}${meta.text.length > 200 ? '...' : ''}"</div>`;
       if (gap != null) {
         html += `<div class="tt-label" style="margin-top:8px">Scope Gap</div>`;
