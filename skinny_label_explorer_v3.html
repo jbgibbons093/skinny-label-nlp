@@ -285,9 +285,7 @@
       <div class="filter-bar" id="advanced-filters" style="display:none;">
         <label class="filter-field">Claims
           <select id="claim-kind-filter">
-            <option value="all">All</option>
-            <option value="indep">Independent</option>
-            <option value="dep">Dependent</option>
+            <option value="all">All (independent only)</option>
           </select>
         </label>
         <div class="filter-field">
@@ -358,12 +356,12 @@
         The meaningful range is 0.82&ndash;1.0. Our threshold of 0.88 corresponds to the 10th percentile of
         true indication&harr;use code matches. Edges below 0.88 are considered "unmatched."
 
-        <h4>Independent vs. Dependent Claims</h4>
-        Independent claims define broad patent scope ("A method of treating..."). Dependent claims narrow
-        to specifics ("...wherein the disease is cardiovascular disease"). Both are embedded individually.
-        228,661 total claims: 52,982 independent, 175,580 dependent.
-        Independent claims account for 81% of edges above threshold. Including dependent claims
-        slightly attenuates the scope gap (mean 0.0086 vs 0.0097 independent-only).
+        <h4>Claim Selection</h4>
+        Only independent method-of-use claims are included (53,081 claims from 5,872 patents).
+        Dependent claims (175,580) are excluded — they are legally subordinate and rarely the
+        best semantic match for a use code. Including them slightly attenuates the scope gap
+        (mean 0.0086 vs 0.0097 independent-only) because they narrow toward specific indications
+        that also appear in the label.
 
         <h4>Data Sources</h4>
         <ul style="margin:6px 0 6px 20px">
@@ -375,9 +373,9 @@
         </ul>
 
         <h4>Network Data</h4>
-        1,013,672 claim-UC edges (all pairs with cosine &ge; 0.88) across 1,924 NDAs.
-        80.8% of edges from independent claims, 19.2% from dependent claims.
-        The "Top N per UC" control (Network view only) adjusts how many claims are shown per use code.
+        343,712 claim-UC edges (independent claims with cosine &ge; 0.88) across 1,913 NDAs.
+        Each edge includes a pre-computed scope gap (g = claim_sim - indication_sim).
+        Each use code includes its indication-UC similarity (iu) and UC-level scope gap (ug = max_claim - iu).
 
         <h4>Limitations</h4>
         <ul style="margin:6px 0 6px 20px">
@@ -726,7 +724,7 @@ function refreshAdvancedFilterUI(nda, year, net) {
   updateFilterButtonLabel('patent-filter-btn', 'Patents', advancedFilters.patents.size, ctx.patents.length);
 
   const parts = [];
-  if (advancedFilters.claimKind !== 'all') parts.push(advancedFilters.claimKind === 'indep' ? 'Independent claims' : 'Dependent claims');
+  // All claims are independent only (no filter needed)
   if (advancedFilters.useCodes.size > 0) parts.push(`${advancedFilters.useCodes.size} UCs`);
   if (advancedFilters.patents.size > 0) parts.push(`${advancedFilters.patents.size} patents`);
   summary.textContent = parts.length ? parts.join(' | ') : 'No advanced filters';
@@ -825,7 +823,7 @@ function applyAdvancedFilters(net, yearCtx) {
   return net.edges.filter(e => {
     if (!yearCtx.activeUCs.has(e.u)) return false;
     if (!selectedUCs.has(e.u)) return false;
-    if (advancedFilters.claimKind !== 'all' && e.k !== advancedFilters.claimKind) return false;
+    // All claims are independent (dependent excluded from data)
     const pat = yearCtx.claimToPat[e.c];
     if (selectedPats.size > 0 && !selectedPats.has(pat)) return false;
     return true;
@@ -1787,11 +1785,11 @@ function renderGATNetwork(nda, year, net, isHeavy) {
       const yPos = margin.top + (claimIdx + 0.5) / Math.max(1, totalClaims) * contentH;
       nodes.push({
         id: c.id, type: 'claim',
-        label: c.kind === 'indep' ? 'Indep' : 'Dep',
-        patent: p.pat, kind: c.kind, text: c.text,
+        label: 'Claim',
+        patent: p.pat, text: c.text,
         color: patentColorMap[p.pat],
-        r: c.kind === 'indep' ? 7 : 5,
-        fx: claimX + (c.kind === 'dep' ? 18 : 0),
+        r: 7,
+        fx: claimX,
         startY: yPos,
       });
       claimIdx++;
@@ -1974,7 +1972,7 @@ function renderGATNetwork(nda, year, net, isHeavy) {
         html += `<div class="tt-label">Gap</div><div class="tt-sim" style="color:${gap > 0 ? '#D55E00' : '#009E73'}">${gap >= 0 ? '+' : ''}${gap.toFixed(3)}</div>`;
       }
     } else if (d.type === 'claim') {
-      html = `<strong>${d.kind === 'indep' ? 'Independent' : 'Dependent'} Claim</strong>`;
+      html = `<strong>Claim</strong>`;
       html += `<div class="tt-label">Patent</div><div>${d.patent}</div>`;
       if (d.text) html += `<div class="tt-claim-text">"${d.text}"</div>`;
       // Show connected UCs
@@ -2268,7 +2266,7 @@ function renderSankey(nda, year, net, isHeavy) {
       } else if (claimIds.includes(hit.id)) {
         const meta = {};
         net.patents.forEach(p => p.claims.forEach(c => { if (c.id === hit.id) Object.assign(meta, c, {patent: p.pat}); }));
-        html = `<strong>${meta.kind === 'indep' ? 'Independent' : 'Dependent'} Claim</strong>`;
+        html = `<strong>Claim</strong>`;
         html += `<div>Patent ${meta.patent || '?'}</div>`;
         if (meta.text) html += `<div class="tt-claim-text">"${meta.text}"</div>`;
       } else {
@@ -2329,9 +2327,18 @@ function renderHeatmap(nda, year, net) {
   document.getElementById('filter-summary').textContent =
     `${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} heatmap edges`;
 
-  // Build similarity matrix
+  // Build similarity and scope gap maps
   const simMap = {};
-  filteredEdges.forEach(e => { simMap[e.c + '|' + e.u] = e.s; });
+  const gapMap = {};
+  filteredEdges.forEach(e => {
+    const key = e.c + '|' + e.u;
+    simMap[key] = e.s;
+    if (e.g != null) gapMap[key] = e.g;
+  });
+
+  // Build indUCmap from network UC data (has iu field)
+  const indUCmap = {};
+  net.use_codes.forEach(uc => { if (uc.iu != null) indUCmap[uc.code] = uc.iu; });
 
   // Build claim metadata
   const claimMeta = {};
@@ -2349,7 +2356,6 @@ function renderHeatmap(nda, year, net) {
   claimIds.sort((a, b) => {
     const ma = claimMeta[a] || {}, mb = claimMeta[b] || {};
     if (ma.patent !== mb.patent) return (ma.patent || '').localeCompare(mb.patent || '');
-    if (ma.kind !== mb.kind) return ma.kind === 'indep' ? -1 : 1;
     return a.localeCompare(b);
   });
 
@@ -2411,15 +2417,16 @@ function renderHeatmap(nda, year, net) {
     ctx.font = `${Math.min(9, cellH - 1)}px Arial`;
     ctx.fillStyle = '#777';
     ctx.textAlign = 'right';
-    const shortLabel = (meta.kind === 'indep' ? 'I' : 'D') + ':' + (meta.patent || '').slice(-5);
+    const shortLabel = (meta.patent || '').slice(-6);
     ctx.fillText(shortLabel, labelLeft - 4, y + cellH - 2);
 
     // Cells — colored by scope gap (claim_sim - ind_sim)
     ucCodes.forEach((uc, j) => {
       const x = labelLeft + j * cellW;
-      const sim = simMap[cid + '|' + uc] || null;
-      const iu = indUCmap[uc] ?? null;
-      const gap = (sim != null && iu != null) ? sim - iu : null;
+      const edgeKey = cid + '|' + uc;
+      const sim = simMap[edgeKey] || null;
+      // Use pre-computed edge-level scope gap if available
+      const gap = gapMap[edgeKey] ?? ((sim != null && (indUCmap[uc] ?? null) != null) ? sim - indUCmap[uc] : null);
       ctx.fillStyle = gapColor(gap);
       ctx.fillRect(x, y, cellW - 1, cellH - 1);
 
@@ -2470,11 +2477,11 @@ function renderHeatmap(nda, year, net) {
       const iu = indUCmap[uc] || null;
 
       const desc = ucDescMap[uc];
-      const gap = (sim != null && iu != null) ? sim - iu : null;
+      const gap = gapMap[cid + '|' + uc] ?? ((sim != null && iu != null) ? sim - iu : null);
 
       let html = `<strong>${uc}</strong>`;
       if (desc) html += `<div class="tt-claim-text">${desc}</div>`;
-      html += `<div style="margin-top:6px"><strong>${meta.kind === 'indep' ? 'Independent' : 'Dependent'} Claim</strong> (Pat ...${(meta.patent||'').slice(-6)})</div>`;
+      html += `<div style="margin-top:6px"><strong>Claim</strong> (Pat ...${(meta.patent||'').slice(-6)})</div>`;
       if (meta.text) html += `<div class="tt-claim-text">"${meta.text.substring(0, 200)}${meta.text.length > 200 ? '...' : ''}"</div>`;
       if (gap != null) {
         html += `<div class="tt-label" style="margin-top:8px">Scope Gap</div>`;
