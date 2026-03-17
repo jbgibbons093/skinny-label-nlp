@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skinny Label Similarity Analysis — Pipeline Diagram</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f1117; color: #e0e0e0; padding: 30px; }
+
+  h1 { text-align: center; font-size: 1.8em; color: #fff; margin-bottom: 5px; }
+  .subtitle { text-align: center; color: #8b8fa3; font-size: 0.95em; margin-bottom: 30px; }
+
+  /* Research question banner */
+  .rq-banner {
+    background: linear-gradient(135deg, #1a1f35, #1e2440);
+    border: 1px solid #2a3055;
+    border-radius: 12px;
+    padding: 24px 30px;
+    margin-bottom: 30px;
+  }
+  .rq-banner h2 { color: #7aa2f7; font-size: 1.1em; margin-bottom: 12px; }
+  .rq-main { color: #c0caf5; font-size: 1.05em; font-style: italic; margin-bottom: 15px; line-height: 1.5; }
+  .rq-sub { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; }
+  .rq-sub div { color: #9aa5ce; font-size: 0.85em; padding-left: 18px; position: relative; line-height: 1.4; }
+  .rq-sub div::before { content: '→'; position: absolute; left: 0; color: #7aa2f7; }
+
+  /* Method banner */
+  .method-banner {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 30px;
+  }
+  .method-card {
+    background: linear-gradient(135deg, #1a2332, #1e2a3a);
+    border: 1px solid #2a4055;
+    border-radius: 10px;
+    padding: 18px;
+    text-align: center;
+  }
+  .method-card .pair { font-size: 1em; font-weight: 600; margin-bottom: 6px; }
+  .method-card .desc { font-size: 0.8em; color: #8b9cc0; line-height: 1.4; }
+  .method-card .signal { font-size: 0.75em; color: #565f89; margin-top: 8px; font-style: italic; }
+  .pair-cu { color: #f7768e; }
+  .pair-ci { color: #e0af68; }
+  .pair-iu { color: #9ece6a; }
+
+  /* Trap score */
+  .trap-banner {
+    background: linear-gradient(135deg, #2d1b2e, #1f1525);
+    border: 1px solid #4a2850;
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin-bottom: 30px;
+    text-align: center;
+  }
+  .trap-banner .formula { font-size: 1.2em; font-family: 'Cambria Math', Georgia, serif; color: #bb9af7; margin: 8px 0; }
+  .trap-banner .explain { font-size: 0.82em; color: #9a7ec0; }
+
+  /* Main pipeline */
+  .pipeline { display: flex; flex-direction: column; gap: 0; position: relative; }
+
+  /* Phase headers */
+  .phase {
+    background: linear-gradient(90deg, #1a1f35, transparent);
+    border-left: 3px solid #7aa2f7;
+    padding: 10px 20px;
+    margin: 20px 0 10px 0;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: #7aa2f7;
+  }
+  .phase .timeline { float: right; color: #565f89; font-weight: normal; font-size: 0.85em; }
+
+  /* Step rows */
+  .step-row {
+    display: grid;
+    grid-template-columns: 50px 1fr 320px 180px;
+    gap: 12px;
+    align-items: start;
+    padding: 10px 0;
+    border-bottom: 1px solid #1a1f2e;
+  }
+  .step-row:last-child { border-bottom: none; }
+
+  /* Status indicator */
+  .status {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75em; font-weight: bold;
+    margin-top: 2px;
+  }
+  .status-done { background: #1a3a2a; color: #9ece6a; border: 2px solid #9ece6a; }
+  .status-progress { background: #2d2a1a; color: #e0af68; border: 2px solid #e0af68; }
+  .status-written { background: #1a2a3a; color: #7aa2f7; border: 2px solid #7aa2f7; }
+  .status-planned { background: #1a1a2a; color: #565f89; border: 2px solid #565f89; }
+
+  /* Step content */
+  .step-info h3 { font-size: 0.95em; color: #c0caf5; margin-bottom: 4px; }
+  .step-info .script { font-size: 0.78em; color: #565f89; font-family: 'Cascadia Code', 'Fira Code', monospace; }
+  .step-info .desc { font-size: 0.82em; color: #8b8fa3; margin-top: 4px; line-height: 1.4; }
+
+  /* Data artifacts */
+  .artifacts { font-size: 0.78em; }
+  .artifact {
+    background: #161922;
+    border: 1px solid #1e2235;
+    border-radius: 5px;
+    padding: 4px 8px;
+    margin: 2px 0;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    color: #7dcfff;
+    display: flex;
+    justify-content: space-between;
+  }
+  .artifact .count { color: #565f89; }
+
+  /* Stats */
+  .stats { font-size: 0.78em; color: #8b8fa3; }
+  .stats .stat { margin: 2px 0; }
+  .stats .val { color: #bb9af7; font-weight: 600; }
+
+  /* Connector arrows */
+  .connector {
+    text-align: center;
+    color: #2a3055;
+    font-size: 1.5em;
+    padding: 0;
+    margin: -5px 0;
+    line-height: 1;
+  }
+
+  /* Data sources sidebar */
+  .data-sources {
+    background: linear-gradient(135deg, #151820, #1a1f2e);
+    border: 1px solid #1e2235;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 25px;
+  }
+  .data-sources h2 { font-size: 1em; color: #7dcfff; margin-bottom: 12px; }
+  .source-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .source {
+    background: #0f1117;
+    border: 1px solid #1e2235;
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .source .name { font-size: 0.85em; font-weight: 600; color: #c0caf5; margin-bottom: 4px; }
+  .source .detail { font-size: 0.75em; color: #565f89; line-height: 1.4; }
+  .source .years { font-size: 0.75em; color: #7aa2f7; margin-top: 4px; }
+
+  /* Cohort info */
+  .cohort-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 25px;
+  }
+  .cohort-stat {
+    background: #151820;
+    border: 1px solid #1e2235;
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+  }
+  .cohort-stat .num { font-size: 1.6em; font-weight: 700; color: #bb9af7; }
+  .cohort-stat .label { font-size: 0.75em; color: #8b8fa3; margin-top: 4px; }
+
+  /* Analysis outputs section */
+  .outputs-section {
+    background: linear-gradient(135deg, #1a2015, #151f15);
+    border: 1px solid #2a4025;
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 25px;
+  }
+  .outputs-section h2 { font-size: 1em; color: #9ece6a; margin-bottom: 12px; }
+  .output-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .output-card {
+    background: #0f1117;
+    border: 1px solid #1e2e1e;
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .output-card .fig-name { font-size: 0.85em; font-weight: 600; color: #c0caf5; margin-bottom: 4px; }
+  .output-card .fig-desc { font-size: 0.78em; color: #8b8fa3; line-height: 1.3; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin: 20px 0;
+    font-size: 0.8em;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; color: #8b8fa3; }
+  .legend-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.6em; font-weight: bold;
+  }
+
+  /* Timeline bar */
+  .timeline-bar {
+    background: #151820;
+    border: 1px solid #1e2235;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 25px;
+  }
+  .timeline-bar h2 { font-size: 0.9em; color: #e0af68; margin-bottom: 10px; }
+  .tl-track {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    position: relative;
+    height: 30px;
+  }
+  .tl-segment {
+    height: 8px;
+    border-radius: 4px;
+    position: relative;
+  }
+  .tl-label {
+    font-size: 0.65em;
+    color: #565f89;
+    position: absolute;
+    bottom: -16px;
+    white-space: nowrap;
+  }
+  .tl-marker {
+    position: absolute;
+    top: -8px;
+    width: 2px;
+    height: 24px;
+    background: #f7768e;
+  }
+  .tl-marker-label {
+    position: absolute;
+    top: -22px;
+    font-size: 0.6em;
+    color: #f7768e;
+    white-space: nowrap;
+    transform: translateX(-50%);
+  }
+</style>
+</head>
+<body>
+
+<h1>Skinny Label Similarity Analysis</h1>
+<div class="subtitle">Semantic Analysis of the Skinny Label Trap: Patent Claims, Use Codes, and Drug Label Indications &nbsp;|&nbsp; Target: JAMA &nbsp;|&nbsp; PI: Jason Gibbons</div>
+
+<!-- Research Questions -->
+<div class="rq-banner">
+  <h2>Research Questions</h2>
+  <div class="rq-main">What is the semantic relationship between patent claims, Orange Book use codes, and approved label indications — and how has this relationship evolved over time to create conditions where skinny labeling fails?</div>
+  <div class="rq-sub">
+    <div><strong>Claim ↔ Use Code:</strong> Do patent claims extend beyond their listed use codes?</div>
+    <div><strong>Claim ↔ Indication:</strong> Do patents cover approved indications or broader territory?</div>
+    <div><strong>Indication ↔ Use Code:</strong> Are use codes listed without approved indication matches?</div>
+    <div><strong>Temporal:</strong> How did GSK v. Teva (2021) change the patent-indication landscape?</div>
+    <div><strong>Network:</strong> How does the patent–use code–indication web densify over a drug's lifecycle?</div>
+    <div><strong>Policy:</strong> Which safe harbors would most effectively address the trap?</div>
+  </div>
+</div>
+
+<!-- Core Method: Three-Way Similarity -->
+<div class="method-banner">
+  <div class="method-card">
+    <div class="pair pair-cu">Claim ↔ Use Code</div>
+    <div class="desc">Does the patent's legal language match its stated purpose in the Orange Book?</div>
+    <div class="signal">Low sim → patent broader than use code → skinny labeling won't protect generics</div>
+  </div>
+  <div class="method-card">
+    <div class="pair pair-ci">Claim ↔ Indication</div>
+    <div class="desc">Does the patent cover what the drug is actually approved for?</div>
+    <div class="signal">Low sim → patent is tangential/strategic, not covering real indications</div>
+  </div>
+  <div class="method-card">
+    <div class="pair pair-iu">Indication ↔ Use Code</div>
+    <div class="desc">Are use codes tracking real approved indications?</div>
+    <div class="signal">Low sim → use codes added for things not in the label</div>
+  </div>
+</div>
+
+<!-- Trap Score -->
+<div class="trap-banner">
+  <div style="font-size:0.85em; color:#9a7ec0;">Derived Construct: The Skinny Label Trap Score</div>
+  <div class="formula">trap_score = mean(claim↔usecode) − mean(indication↔usecode)</div>
+  <div class="explain">Measures the semantic gap between patent scope and approved indication coverage. High score = patents cover territory beyond approved uses = generic cannot safely carve out.</div>
+</div>
+
+<!-- Cohort Stats -->
+<div class="cohort-bar">
+  <div class="cohort-stat">
+    <div class="num">2,927</div>
+    <div class="label">NDAs in Universe</div>
+  </div>
+  <div class="cohort-stat">
+    <div class="num">1,966</div>
+    <div class="label">Treatment (with use codes)</div>
+  </div>
+  <div class="cohort-stat">
+    <div class="num">961</div>
+    <div class="label">Control (no use codes)</div>
+  </div>
+  <div class="cohort-stat">
+    <div class="num">39</div>
+    <div class="label">OB Snapshot Years (1985–2024)</div>
+  </div>
+  <div class="cohort-stat">
+    <div class="num">1998–2024</div>
+    <div class="label" style="font-size:0.7em;">Full Three-Way Analysis Window</div>
+  </div>
+</div>
+
+<!-- Timeline -->
+<div class="timeline-bar">
+  <h2>Temporal Coverage</h2>
+  <div style="display:flex; align-items:center; gap:0; margin:15px 0 25px 0; position:relative;">
+    <!-- NBER segment -->
+    <div style="flex:31; height:10px; background:linear-gradient(90deg, #2a4055, #3a5575); border-radius:5px 0 0 5px; position:relative;">
+      <span style="position:absolute; top:-16px; left:0; font-size:0.7em; color:#7dcfff;">1985</span>
+      <span style="position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); font-size:0.65em; color:#3a5575;">NBER (31 editions)</span>
+    </div>
+    <!-- Gap fill -->
+    <div style="flex:2; height:10px; background:#e0af68; position:relative;">
+      <span style="position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); font-size:0.6em; color:#e0af68; white-space:nowrap;">2017–18 gap fill</span>
+    </div>
+    <!-- Modern OB -->
+    <div style="flex:6; height:10px; background:linear-gradient(90deg, #2a5540, #3a7560); border-radius:0 5px 5px 0; position:relative;">
+      <span style="position:absolute; top:-16px; right:0; font-size:0.7em; color:#9ece6a;">2024</span>
+      <span style="position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); font-size:0.65em; color:#3a7560;">Modern OB</span>
+    </div>
+    <!-- Markers -->
+    <div style="position:absolute; left:calc(31/39 * 100% - 3.5/39 * 100%); top:-6px; width:2px; height:22px; background:#f7768e;"></div>
+    <div style="position:absolute; left:calc(31/39 * 100% - 3.5/39 * 100%); top:-22px; font-size:0.6em; color:#f7768e; white-space:nowrap; transform:translateX(-50%);">GSK v. Teva (2021)</div>
+    <div style="position:absolute; left:calc(100% - 1/39 * 100%); top:-6px; width:2px; height:22px; background:#f7768e;"></div>
+    <div style="position:absolute; left:calc(100% - 1/39 * 100%); top:-22px; font-size:0.6em; color:#f7768e; white-space:nowrap; transform:translateX(-50%);">Amarin v. Hikma (2024)</div>
+    <!-- Labels overlap bar -->
+    <div style="position:absolute; left:calc(13/39 * 100%); right:0; top:16px; height:4px; background:linear-gradient(90deg, transparent, #bb9af7 5%, #bb9af7); border-radius:2px;"></div>
+    <div style="position:absolute; left:calc(13/39 * 100%); top:24px; font-size:0.6em; color:#bb9af7;">← Labels available (1998–2026) →</div>
+  </div>
+</div>
+
+<!-- Data Sources -->
+<div class="data-sources">
+  <h2>Data Sources</h2>
+  <div class="source-grid">
+    <div class="source">
+      <div class="name">NBER Orange Book</div>
+      <div class="detail">FDA_drug_patents.dta<br>130,259 rows, 31 editions</div>
+      <div class="years">1985–2016</div>
+    </div>
+    <div class="source">
+      <div class="name">Arnold Ventures Archive</div>
+      <div class="detail">patent.txt + patent_revised.xlsx<br>27,915 rows (gap fill)</div>
+      <div class="years">2017–2018</div>
+    </div>
+    <div class="source">
+      <div class="name">Modern OB Snapshots</div>
+      <div class="detail">patent.txt (tilde-delimited)<br>8 annual snapshots</div>
+      <div class="years">2014–2024</div>
+    </div>
+    <div class="source">
+      <div class="name">Drugs@FDA API</div>
+      <div class="detail">Label PDFs for all 2,927 NDAs<br>12,784+ documents</div>
+      <div class="years">1998–2026</div>
+    </div>
+  </div>
+  <div class="source-grid" style="margin-top:10px;">
+    <div class="source">
+      <div class="name">USPTO / PatentsView</div>
+      <div class="detail">Patent full text, claims parsed<br>737,951 claims in corpus</div>
+      <div class="years">All listed patents</div>
+    </div>
+    <div class="source">
+      <div class="name">FDA Use Code Descriptions</div>
+      <div class="detail">Scraped from accessdata.fda.gov<br>4,421 codes, 100% coverage</div>
+      <div class="years">Current (all codes)</div>
+    </div>
+    <div class="source">
+      <div class="name">Embedding Model</div>
+      <div class="detail">S-PubMedBert-MS-MARCO<br>768-dim, L2-normalized</div>
+      <div class="years">Shared space for all 3 text types</div>
+    </div>
+    <div class="source">
+      <div class="name">DailyMed (fallback)</div>
+      <div class="detail">SPL XML structured labels<br>LOINC 34067-9 = Indications</div>
+      <div class="years">For NDAs missing from FDA</div>
+    </div>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot status-done">✓</div> Complete</div>
+  <div class="legend-item"><div class="legend-dot status-progress">⟳</div> In Progress</div>
+  <div class="legend-item"><div class="legend-dot status-written">✎</div> Code Written</div>
+  <div class="legend-item"><div class="legend-dot status-planned">○</div> Planned</div>
+</div>
+
+<!-- Pipeline Steps -->
+<div class="pipeline">
+
+  <!-- Phase 1: Data Assembly -->
+  <div class="phase">Phase 1 — Data Assembly <span class="timeline">1985–2024 OB panel + label PDFs + patent claims</span></div>
+
+  <div class="step-row">
+    <div class="status status-done">✓</div>
+    <div class="step-info">
+      <h3>s00 — Configuration</h3>
+      <div class="script">s00_config.py</div>
+      <div class="desc">Paths, constants, embedding model selection. Inherits from parent 00_config.py.</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">SL_DATA, SL_EMBEDDINGS, SL_LABELS_RAW</div>
+      <div class="artifact">PRIMARY_EMBEDDING_MODEL <span class="count">S-PubMedBert-MS-MARCO</span></div>
+      <div class="artifact">NO_MATCH_THRESHOLD <span class="count">0.3 (to calibrate)</span></div>
+    </div>
+    <div class="stats"></div>
+  </div>
+
+  <div class="step-row">
+    <div class="status status-done">✓</div>
+    <div class="step-info">
+      <h3>s01 — NDA Universe</h3>
+      <div class="script">s01_nda_universe.py</div>
+      <div class="desc">Build unified OB patent panel from NBER (1985–2016) + gap-fill (2017–2018) + modern OB (2014–2024). Define treatment/control groups.</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">sl_ob_patent_panel.parquet <span class="count">261,391 rows</span></div>
+      <div class="artifact">sl_nda_universe.parquet <span class="count">2,927 NDAs</span></div>
+      <div class="artifact">sl_use_code_panel.parquet <span class="count">34,806 rows</span></div>
+      <div class="artifact">sl_use_code_lookup.parquet <span class="count">4,421 codes</span></div>
+      <div class="artifact">sl_use_code_history.parquet <span class="count">16,841 rows</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="val">1,966</span> treatment NDAs</div>
+      <div class="stat"><span class="val">961</span> control NDAs</div>
+      <div class="stat"><span class="val">39</span> years (gap only at 1986)</div>
+      <div class="stat"><span class="val">7.7×</span> use code growth 2001→2024</div>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="status status-progress">⟳</div>
+    <div class="step-info">
+      <h3>s02 — Scrape Labels</h3>
+      <div class="script">s02_scrape_labels.py</div>
+      <div class="desc">Query Drugs@FDA API for every NDA, download all label PDFs. DailyMed XML fallback for missing NDAs.</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">label_manifest.csv <span class="count">12,784 rows (initial)</span></div>
+      <div class="artifact">Data/raw/labels/{NDA}/*.pdf <span class="count">12,751 PDFs</span></div>
+      <div class="artifact">api_cache/{NDA}.json <span class="count">1,737 cached</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="val">1,686</span> NDAs scraped (initial)</div>
+      <div class="stat"><span class="val">1,239</span> NDAs queuing (expanded)</div>
+      <div class="stat"><span class="val">99.7%</span> download success rate</div>
+      <div class="stat" style="color:#e0af68;">Expanding to full 2,927 NDAs</div>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="status status-written">✎</div>
+    <div class="step-info">
+      <h3>s03 — Parse Labels</h3>
+      <div class="script">s03_parse_labels.py</div>
+      <div class="desc">Extract "INDICATIONS AND USAGE" section from each PDF. Handles modern (post-2006 PLR) and older label formats. Splits into individual indications.</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">sl_label_indications.parquet <span class="count">100 rows (test)</span></div>
+      <div class="artifact">sl_label_indications_split.parquet <span class="count">79 rows (test)</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="val">66%</span> extraction rate (test)</div>
+      <div class="stat">Remaining = non-PI docs</div>
+      <div class="stat" style="color:#e0af68;">Needs full run after s02</div>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="status status-done">✓</div>
+    <div class="step-info">
+      <h3>s04 — Link Use Codes to Claims</h3>
+      <div class="script">s04_link_use_codes.py</div>
+      <div class="desc">Link each use code to its patent's method-of-use claims (ALL independent + dependent). Build embedding-ready text corpora.</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">sl_use_code_claims.parquet <span class="count">10,843 triples</span></div>
+      <div class="artifact">sl_embed_use_codes.parquet <span class="count">4,421 texts</span></div>
+      <div class="artifact">sl_embed_claims.parquet <span class="count">214,278 texts</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="val">47,642</span> independent claims</div>
+      <div class="stat"><span class="val">166,568</span> dependent claims</div>
+      <div class="stat"><span class="val">89%</span> claim text coverage</div>
+      <div class="stat"><span class="val">3.5:1</span> dep:indep ratio</div>
+    </div>
+  </div>
+
+  <!-- Phase 2: Embedding & Similarity -->
+  <div class="phase">Phase 2 — Embedding &amp; Similarity <span class="timeline">GPU: RTX 3070 Ti · Model: S-PubMedBert-MS-MARCO (768-dim)</span></div>
+
+  <div class="step-row">
+    <div class="status status-progress">⟳</div>
+    <div class="step-info">
+      <h3>s05 — Embed All Texts</h3>
+      <div class="script">s05_embed_all.py</div>
+      <div class="desc">Embed all three text corpora in a shared embedding space. L2-normalized for cosine sim = dot product.</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">sl_embeddings_use_codes.npz <span class="count">4,421 × 768</span></div>
+      <div class="artifact">sl_embeddings_claims.npz <span class="count">214,254 × 768 ⚠️</span></div>
+      <div class="artifact">sl_embeddings_indications.npz <span class="count">pending</span></div>
+      <div class="artifact">+ .json metadata sidecars</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="val">12 MB</span> use codes (17 sec)</div>
+      <div class="stat"><span class="val">240 MB</span> claims (6.5 min)</div>
+      <div class="stat" style="color:#e0af68;">Re-embed claims (214,278)</div>
+      <div class="stat" style="color:#e0af68;">+ embed indications after s03</div>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="status status-written">✎</div>
+    <div class="step-info">
+      <h3>s06 — Three-Way Similarity</h3>
+      <div class="script">s06_three_way_similarity.py</div>
+      <div class="desc">Compute all three similarity pairs for each NDA × timepoint. Temporal alignment: match labels to OB snapshots. Derive trap score, unmatched use codes, intra-UC similarity.</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">sl_three_way_similarity.parquet <span class="count">pending</span></div>
+      <div class="artifact">sl_three_way_usecode_detail.parquet <span class="count">pending</span></div>
+      <div class="artifact">sl_control_group_baseline.parquet <span class="count">pending</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat">Max-per-UC claim aggregation</div>
+      <div class="stat">Threshold: 0.3 (to calibrate)</div>
+      <div class="stat" style="color:#e0af68;">Needs all 3 embeddings</div>
+    </div>
+  </div>
+
+  <!-- Phase 3: Analysis -->
+  <div class="phase">Phase 3 — Analysis <span class="timeline">Descriptive trends, structural breaks, GAT, case studies</span></div>
+
+  <div class="step-row">
+    <div class="status status-planned">○</div>
+    <div class="step-info">
+      <h3>s07A — Temporal Analysis</h3>
+      <div class="script">s07_temporal_analysis.py (Part A)</div>
+      <div class="desc">Yearly trends in three similarity scores (1998–2024). Structural break test at GSK v. Teva (2021) via permutation test. Cohort analysis by approval decade. Treatment vs. control comparison.</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">temporal_trends.parquet <span class="count">planned</span></div>
+      <div class="artifact">structural_break_tests.json <span class="count">planned</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat">Permutation test (10K perms)</div>
+      <div class="stat">Pre/post 2021 comparison</div>
+      <div class="stat">Descriptive, not causal</div>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="status status-planned">○</div>
+    <div class="step-info">
+      <h3>s07B — Graph Attention Network</h3>
+      <div class="script">s07_temporal_analysis.py (Part B)</div>
+      <div class="desc">Heterogeneous GAT with 5 edge types (drug→patent, patent→usecode, drug→indication, patent→indication, usecode→indication). Learns attention weights to identify which connections characterize the trap.</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">gat_model/ <span class="count">planned</span></div>
+      <div class="artifact">gat_attention_weights.parquet <span class="count">planned</span></div>
+      <div class="artifact">network_data/ <span class="count">planned</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat">PyTorch Geometric HeteroData</div>
+      <div class="stat">GATv2Conv, 4 heads</div>
+      <div class="stat">Link prediction objective</div>
+      <div class="stat">Analysis tool, not prediction</div>
+    </div>
+  </div>
+
+  <div class="step-row">
+    <div class="status status-planned">○</div>
+    <div class="step-info">
+      <h3>s08 — Case Studies</h3>
+      <div class="script">s08_case_studies.py</div>
+      <div class="desc">Deep-dive on Vascepa (Amarin v. Hikma), Coreg (GSK v. Teva), 3–5 additional cases (highest trap scores, successful skinny labels, counter-examples).</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">case_studies/vascepa/ <span class="count">planned</span></div>
+      <div class="artifact">case_studies/coreg/ <span class="count">planned</span></div>
+      <div class="artifact">case_study_summary.csv <span class="count">planned</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat">Timeline + similarity trajectory</div>
+      <div class="stat">Network graph per timepoint</div>
+      <div class="stat">Narrative of trap formation</div>
+    </div>
+  </div>
+
+  <!-- Phase 4: Manuscript -->
+  <div class="phase">Phase 4 — Manuscript <span class="timeline">Target: JAMA Original Investigation</span></div>
+
+  <div class="step-row">
+    <div class="status status-planned">○</div>
+    <div class="step-info">
+      <h3>s09 — Figures</h3>
+      <div class="script">s09_figures.py</div>
+      <div class="desc">Publication-quality figures for JAMA. 18cm max width, 300 DPI, Arial, colorblind-safe palette.</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">figure1_temporal_trends.pdf</div>
+      <div class="artifact">figure2_vascepa_network.pdf</div>
+      <div class="artifact">figure3_trap_score_distribution.pdf</div>
+      <div class="artifact">figure4_usecode_heatmap.pdf</div>
+      <div class="artifact">figure5_validation.pdf <span class="count">(supplement)</span></div>
+    </div>
+    <div class="stats"></div>
+  </div>
+
+  <div class="step-row">
+    <div class="status status-planned">○</div>
+    <div class="step-info">
+      <h3>s10 — Manuscript</h3>
+      <div class="script">s10_manuscript.py</div>
+      <div class="desc">Collect inline statistics, verify all outputs, generate manuscript skeleton with filled numbers.</div>
+    </div>
+    <div class="artifacts">
+      <div class="artifact">manuscript_stats.json</div>
+      <div class="artifact">Tables 1–4</div>
+    </div>
+    <div class="stats">
+      <div class="stat">Co-author: Sean Tu</div>
+      <div class="stat">Timed to SCOTUS Amarin</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Planned Outputs -->
+<div class="outputs-section">
+  <h2>Planned Manuscript Outputs</h2>
+  <div class="output-grid">
+    <div class="output-card">
+      <div class="fig-name">Figure 1: Temporal Trends</div>
+      <div class="fig-desc">Three-panel line chart of similarity scores (1998–2024). Treatment vs. control. Vertical lines at GSK v. Teva and Amarin v. Hikma. 95% CI bands.</div>
+    </div>
+    <div class="output-card">
+      <div class="fig-name">Figure 2: Vascepa Network</div>
+      <div class="fig-desc">Multi-panel network showing trap formation over time. Nodes = patents/use codes/indications. Edges colored by similarity, weighted by GAT attention.</div>
+    </div>
+    <div class="output-card">
+      <div class="fig-name">Figure 3: Trap Score Distribution</div>
+      <div class="fig-desc">Histogram of trap scores across all NDAs. Known cases annotated (Vascepa, Coreg). Right-skewed expected: most drugs near zero, tail of high-trap.</div>
+    </div>
+    <div class="output-card">
+      <div class="fig-name">Figure 4: Use Code Heatmap</div>
+      <div class="fig-desc">Intra-use-code similarity matrices for top 5 high-trap drugs vs. a "clean" portfolio. Shows semantic overlap between use codes.</div>
+    </div>
+    <div class="output-card">
+      <div class="fig-name">Figure 5: Validation (Supplement)</div>
+      <div class="fig-desc">ROC curve for matched vs. unmatched use code/indication pairs. Threshold sensitivity analysis. Model comparison.</div>
+    </div>
+    <div class="output-card">
+      <div class="fig-name">Tables 1–4</div>
+      <div class="fig-desc">T1: Descriptive stats. T2: Top drugs by trap score. T3 (suppl): Robustness across models. T4 (suppl): Validation results.</div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center; margin-top:25px; color:#565f89; font-size:0.75em;">
+  Generated 2026-03-16 &nbsp;|&nbsp; Pipeline version: s01–s04 complete, s05–s06 in progress, s07–s10 planned
+</div>
+
+</body>
+</html>
