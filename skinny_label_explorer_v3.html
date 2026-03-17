@@ -2836,30 +2836,46 @@ function renderHeatmap(nda, year, net) {
     const col = Math.floor((mx - labelLeft) / cellW);
     const row = Math.floor((my - labelTop) / cellH);
 
-    if (col >= 0 && col < ucCodes.length && row >= 0 && row < claimIds.length) {
-      const uc = ucCodes[col];
+    if (col >= 0 && col < colCount && row >= 0 && row < claimIds.length) {
       const cid = claimIds[row];
-      const sim = simMap[cid + '|' + uc] || null;
       const meta = claimMeta[cid] || {};
-      const iu = indUCmap[uc] || null;
-
-      const desc = ucDescMap[uc];
-      const gap = gapMap[cid + '|' + uc] ?? ((sim != null && iu != null) ? sim - iu : null);
       const ciInfo = getClaimCIInfo(ciMaps, cid);
+      let html = '';
 
-      let html = `<strong>${uc}</strong>`;
-      if (desc) html += `<div class="tt-claim-text">${desc}</div>`;
-      html += `<div style="margin-top:6px"><strong>Claim</strong> (Pat ${meta.patent||''})</div>`;
-      if (ciInfo.ci && ciInfo.ci.ci != null) html += `<div class="tt-label">Claim-Indication</div><div>${ciInfo.ci.ci.toFixed(4)}</div>`;
-      if (ciInfo.ci) html += `<div class="tt-label">Orphan</div><div>${ciInfo.ci.orphan ? 'Yes' : 'No'}</div>`;
-      if (ciInfo.indication && ciInfo.topEdge) html += `<div class="tt-claim-text">${ciInfo.indication.text.substring(0, 220)}${ciInfo.indication.text.length > 220 ? '...' : ''}</div>`;
-      if (meta.text) html += `<div class="tt-claim-text">"${meta.text.substring(0, 200)}${meta.text.length > 200 ? '...' : ''}"</div>`;
-      if (gap != null) {
-        html += `<div class="tt-label" style="margin-top:8px">Scope Gap</div>`;
-        html += `<div class="tt-sim" style="font-size:16px; color:${gap > 0 ? '#D55E00' : '#009E73'}">${gap >= 0 ? '+' : ''}${gap.toFixed(4)}</div>`;
+      if (isClaimInd) {
+        // Claim-Indication heatmap: columns are indication dates
+        const ind = (net.indications || [])[col];
+        const indId = ind ? ind.id : '';
+        const ciSim = ciEdgeMap[cid + '|' + indId] ?? null;
+
+        html = `<strong>Indication ${colLabels[col]}</strong>`;
+        if (ind && ind.text) html += `<div class="tt-claim-text">${ind.text.substring(0, 250)}${ind.text.length > 250 ? '...' : ''}</div>`;
+        html += `<div style="margin-top:6px"><strong>Claim</strong> (Pat ${meta.patent||''})</div>`;
+        if (meta.text) html += `<div class="tt-claim-text">"${meta.text.substring(0, 200)}${meta.text.length > 200 ? '...' : ''}"</div>`;
+        html += `<div class="tt-label" style="margin-top:6px">Claim-Indication Similarity</div>`;
+        html += `<div class="tt-sim" style="font-size:16px">${ciSim != null ? ciSim.toFixed(4) : 'N/A'}</div>`;
+        if (ciInfo.ci && ciInfo.ci.ci != null) html += `<div class="tt-label">Max CI (any indication)</div><div>${ciInfo.ci.ci.toFixed(4)}</div>`;
+      } else {
+        // UC-based heatmap modes
+        const uc = ucCodes[col];
+        const sim = simMap[cid + '|' + uc] || null;
+        const iu = indUCmap[uc] || null;
+        const desc = ucDescMap[uc];
+        const gap = gapMap[cid + '|' + uc] ?? ((sim != null && iu != null) ? sim - iu : null);
+
+        html = `<strong>${uc}</strong>`;
+        if (desc) html += `<div class="tt-claim-text">${desc}</div>`;
+        html += `<div style="margin-top:6px"><strong>Claim</strong> (Pat ${meta.patent||''})</div>`;
+        if (meta.text) html += `<div class="tt-claim-text">"${meta.text.substring(0, 200)}${meta.text.length > 200 ? '...' : ''}"</div>`;
+        if (ciInfo.ci && ciInfo.ci.ci != null) html += `<div class="tt-label">Claim-Indication</div><div>${ciInfo.ci.ci.toFixed(4)}</div>`;
+        if (gap != null) {
+          html += `<div class="tt-label" style="margin-top:6px">Scope Gap</div>`;
+          html += `<div class="tt-sim" style="color:${gap > 0 ? '#D55E00' : '#009E73'}">${gap >= 0 ? '+' : ''}${gap.toFixed(4)}</div>`;
+        }
+        html += `<div class="tt-label">Claim-UC</div><div>${sim != null ? sim.toFixed(4) : 'N/A'}</div>`;
+        if (iu != null) html += `<div class="tt-label">Indication-UC</div><div>${iu.toFixed(4)}</div>`;
       }
-      html += `<div class="tt-label">Claim-UC</div><div>${sim != null ? sim.toFixed(4) : 'below threshold'}</div>`;
-      if (iu != null) html += `<div class="tt-label">Indication-UC</div><div>${iu.toFixed(4)}</div>`;
+
       tooltip.innerHTML = html;
       tooltip.style.display = 'block';
       tooltip.style.left = (e.pageX + 14) + 'px';
