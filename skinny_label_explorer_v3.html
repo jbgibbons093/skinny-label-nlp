@@ -242,12 +242,36 @@
     <div class="card">
       <h3>Selected Drug Overview</h3>
       <div class="detail-grid" style="grid-template-columns:repeat(6,1fr);">
-        <div class="detail-stat"><div class="label">Drug</div><div class="value" id="d-name">Select a drug</div><div class="sub" id="d-ingredient">-</div></div>
-        <div class="detail-stat"><div class="label">Claim-Indication</div><div class="value" id="d-ci">-</div><div class="sub" id="d-ci-sub">-</div></div>
-        <div class="detail-stat"><div class="label">Claim-UC</div><div class="value" id="d-cu">-</div><div class="sub">Latest year</div></div>
-        <div class="detail-stat"><div class="label">Ind-UC</div><div class="value" id="d-iu">-</div><div class="sub">Latest year</div></div>
-        <div class="detail-stat"><div class="label">Scope Gap</div><div class="value" id="d-gap">-</div><div class="sub" id="d-gap-sub">Claim-UC minus Ind-UC</div></div>
-        <div class="detail-stat"><div class="label">Use Codes / Claims</div><div class="value" id="d-ucs">-</div><div class="sub" id="d-claims">-</div></div>
+        <div class="detail-stat">
+          <div class="label">Drug</div>
+          <div class="value" id="d-name">Select a drug</div>
+          <div class="sub" id="d-ingredient">-</div>
+        </div>
+        <div class="detail-stat">
+          <div class="label">Claim-Indication <span class="help-icon">?<span class="help-tip">How closely do this drug's patent claims match its approved indications? Higher = claims cover what the drug is approved for. Lower = claims cover territory outside the label. Mean across all drugs: 0.918.</span></span></div>
+          <div class="value" id="d-ci">-</div>
+          <div class="sub" id="d-ci-sub">-</div>
+        </div>
+        <div class="detail-stat">
+          <div class="label">Claim-UC <span class="help-icon">?<span class="help-tip">How closely do patent claims match Orange Book use code descriptions? High values mean the patent's legal language aligns with its stated regulatory purpose.</span></span></div>
+          <div class="value" id="d-cu">-</div>
+          <div class="sub">Latest year</div>
+        </div>
+        <div class="detail-stat">
+          <div class="label">Ind-UC <span class="help-icon">?<span class="help-tip">How closely does the drug's approved label match its use codes? When this is low, use codes may exist without corresponding approved indications &mdash; potential "phantom" codes.</span></span></div>
+          <div class="value" id="d-iu">-</div>
+          <div class="sub">Latest year</div>
+        </div>
+        <div class="detail-stat">
+          <div class="label">Scope Gap <span class="help-icon">?<span class="help-tip">Claim-UC minus Indication-UC. Positive = patent claims semantically exceed what the label covers for use codes. Negative = label covers use codes better than claims. Near zero on average (0.010).</span></span></div>
+          <div class="value" id="d-gap">-</div>
+          <div class="sub" id="d-gap-sub">Claim-UC minus Ind-UC</div>
+        </div>
+        <div class="detail-stat">
+          <div class="label">Use Codes / Claims <span class="help-icon">?<span class="help-tip">Number of Orange Book use codes linked to this drug's patents, and total independent method-of-use claims in the patent portfolio. More UCs = more potential carve-out complexity for generics.</span></span></div>
+          <div class="value" id="d-ucs">-</div>
+          <div class="sub" id="d-claims">-</div>
+        </div>
       </div>
     </div>
     <div class="card">
