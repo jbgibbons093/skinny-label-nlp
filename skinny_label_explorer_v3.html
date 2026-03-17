@@ -2336,10 +2336,6 @@ function renderHeatmap(nda, year, net) {
     if (e.g != null) gapMap[key] = e.g;
   });
 
-  // Build indUCmap from network UC data (has iu field)
-  const indUCmap = {};
-  net.use_codes.forEach(uc => { if (uc.iu != null) indUCmap[uc.code] = uc.iu; });
-
   // Build claim metadata
   const claimMeta = {};
   net.patents.forEach(p => {
