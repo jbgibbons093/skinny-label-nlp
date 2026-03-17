@@ -38,7 +38,8 @@
   .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   #trend-chart { width: 100%; height: 260px; }
   #drug-chart { width: 100%; height: 260px; }
-  #network-svg { width: 100%; height: 520px; background: #fafbfc; border-radius: 6px; }
+  .network-container { max-height: 600px; overflow-y: auto; overflow-x: hidden; border-radius: 6px; }
+  #network-svg { width: 100%; min-height: 400px; background: #fafbfc; border-radius: 6px; }
   .network-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .year-slider { display: flex; align-items: center; gap: 8px; flex: 1; }
   .year-slider input[type="range"] { flex: 1; min-width: 150px; }
@@ -74,6 +75,24 @@
   .net-info .trap-val.negative { color: var(--green); }
   /* Network layout labels */
   .axis-label { font-size: 10px; fill: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+  /* Help icons */
+  .help-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+    border-radius: 50%; background: #e0e5ec; color: var(--gray); font-size: 10px; font-weight: 700;
+    cursor: help; margin-left: 6px; vertical-align: middle; position: relative; }
+  .help-icon:hover .help-tip { display: block; }
+  .help-tip { display: none; position: absolute; top: 22px; left: -120px; width: 300px; background: rgba(0,0,0,0.92);
+    color: #eee; padding: 12px 14px; border-radius: 8px; font-size: 12px; font-weight: 400; line-height: 1.5;
+    z-index: 200; text-transform: none; letter-spacing: 0; pointer-events: none; }
+  /* Heatmap */
+  #heatmap-canvas { width: 100%; border-radius: 6px; cursor: crosshair; }
+  .heatmap-container { max-height: 600px; overflow: auto; }
+  /* Methods section */
+  .methods-toggle { cursor: pointer; color: var(--blue); font-weight: 600; font-size: 13px; user-select: none; }
+  .methods-toggle:hover { text-decoration: underline; }
+  .methods-body { display: none; margin-top: 10px; font-size: 12px; line-height: 1.7; color: #444; }
+  .methods-body.open { display: block; }
+  .methods-body h4 { color: var(--blue); margin: 12px 0 4px; font-size: 13px; }
+  .methods-body code { background: #f0f2f5; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
   @media (max-width: 900px) { .main { grid-template-columns: 1fr; } .panels { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -106,7 +125,9 @@
   <div class="content">
     <div class="panels">
       <div class="card">
-        <h3>Aggregate Temporal Trends</h3>
+        <h3>Aggregate Temporal Trends
+          <span class="help-icon">?<span class="help-tip">Shows how patent claim similarity to use codes (red), label indication similarity to use codes (green), and the scope gap (purple, dashed) have changed across all drugs from 1988-2024. Vertical dashed lines mark GSK v. Teva (2021) and Amarin v. Hikma (2024). The gap between red and green lines is the average scope gap — when red is above green, patent claims semantically exceed what the label covers.</span></span>
+        </h3>
         <canvas id="trend-chart"></canvas>
         <div class="legend">
           <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Claim-UC</div>
@@ -115,13 +136,17 @@
         </div>
       </div>
       <div class="card">
-        <h3>Drug Similarity Trajectory: <span id="drug-title">Select a drug</span></h3>
+        <h3>Drug Similarity Trajectory: <span id="drug-title">Select a drug</span>
+          <span class="help-icon">?<span class="help-tip">Shows how this drug's similarities change over its Orange Book lifetime. <strong>Red (Claim-UC):</strong> how closely patent claims match use code descriptions. <strong>Green (Ind-UC):</strong> how closely the drug's label matches use codes. <strong>Purple dashed (Scope Gap):</strong> the difference. When purple is positive, patent claims semantically reach beyond what the label covers — the core of the skinny label problem.</span></span>
+        </h3>
         <canvas id="drug-chart"></canvas>
       </div>
     </div>
 
     <div class="card" style="position:relative">
-      <h3>Claim-Use Code Network: <span id="net-title">-</span></h3>
+      <h3>Claim-Use Code Network: <span id="net-title">-</span>
+        <span class="help-icon">?<span class="help-tip"><strong>Simple:</strong> Star graph — drug at center, use codes as satellites. Edge color: red = patent claims exceed label, green = label covers it.<br><br><strong>GAT:</strong> Bipartite graph — individual patent claims (left) connected to use codes (right). Claims colored by patent. Edge opacity = cosine similarity strength.<br><br><strong>Heatmap:</strong> Matrix view — claims as rows, use codes as columns, color intensity = cosine similarity. Best for large networks. Hover for details.</span></span>
+      </h3>
       <div class="network-controls">
         <button class="play-btn" id="play-btn" title="Animate through years">&#9654; Play</button>
         <div class="year-slider">
@@ -132,6 +157,7 @@
         <div class="view-toggle">
           <button id="view-simple" class="active" title="Simple star graph">Simple</button>
           <button id="view-gat" title="Claim-level bipartite graph">GAT</button>
+          <button id="view-heatmap" title="Claim-UC similarity matrix">Heatmap</button>
         </div>
         <label id="dep-toggle" style="display:none; font-size:12px; cursor:pointer; user-select:none;">
           <input type="checkbox" id="show-dep" checked> Dependent claims
@@ -140,7 +166,8 @@
           Top <input type="number" id="top-n-per-uc" value="20" min="1" max="999" style="width:48px; font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:4px;"> per UC
         </label>
       </div>
-      <svg id="network-svg"></svg>
+      <div class="network-container"><svg id="network-svg"></svg></div>
+      <div class="heatmap-container" id="heatmap-wrap" style="display:none"><canvas id="heatmap-canvas"></canvas></div>
       <div id="pat-legend" class="pat-legend"></div>
       <div class="legend" id="net-legend">
         <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Drug</div>
@@ -151,20 +178,56 @@
     </div>
 
     <div class="card">
-      <h3>About</h3>
+      <h3>About &amp; Methods</h3>
       <p class="info-text">
         This tool visualizes the semantic relationship between <strong>individual patent claims</strong>,
         Orange Book use codes, and approved label indications for FDA-approved drugs.
-        The <strong>trap score</strong> measures the gap between how well patent claims match use codes
-        vs. how well label indications match use codes. A positive trap score suggests patent scope
-        may exceed approved indications.
-        <br><br>
-        <strong>GAT view</strong> shows the bipartite graph between individual claims (left) and use codes (right),
-        with edges weighted by cosine similarity. Claims are grouped and colored by patent.
-        <br><br>
-        <strong>Model:</strong> S-PubMedBert-MS-MARCO (768-dim). <strong>Threshold:</strong> 0.88 cosine similarity.
-        <strong>Data:</strong> 2,927 NDAs, 228K patent claims, 17.8K label indications.
+        The <strong>scope gap</strong> (formerly "trap score") measures how far patent claims semantically
+        exceed what the drug's label actually covers.
       </p>
+      <div class="methods-toggle" id="methods-toggle" onclick="document.getElementById('methods-body').classList.toggle('open'); this.textContent = this.textContent.includes('+') ? '- Hide methods' : '+ Show methods'">+ Show methods</div>
+      <div class="methods-body" id="methods-body">
+        <h4>Three-Way Semantic Similarity</h4>
+        All text (patent claims, use code descriptions, label indications) is embedded with
+        <code>S-PubMedBert-MS-MARCO</code> (768-dim, biomedical domain). Cosine similarity in this shared
+        space measures semantic closeness. Three pairwise similarities are computed:
+        <ul style="margin:6px 0 6px 20px">
+          <li><strong>Claim &harr; Use Code:</strong> Does the patent's language match the use code description?</li>
+          <li><strong>Indication &harr; Use Code:</strong> Does the drug label's approved indication match the use code?</li>
+          <li><strong>Scope Gap:</strong> = Claim-UC similarity minus Indication-UC similarity. Positive = patent claims reach beyond label.</li>
+        </ul>
+
+        <h4>Scope Gap (formerly Trap Score)</h4>
+        <code>scope_gap = mean(max_claim_sim_per_UC) - mean(indication_UC_sim)</code><br>
+        For each use code, we find the single best-matching claim (max across all independent + dependent claims).
+        The average of these per-UC maxima is compared to the average indication-UC similarity.
+        A positive scope gap means the patent portfolio semantically covers territory that the label does not.
+
+        <h4>Similarity Floor</h4>
+        Biomedical embeddings have a floor at ~0.82 cosine similarity — even unrelated texts score this high.
+        The meaningful range is 0.82&ndash;1.0. Our threshold of 0.88 corresponds to the 10th percentile of
+        true indication&harr;use code matches. Edges below 0.88 are considered "unmatched."
+
+        <h4>Independent vs. Dependent Claims</h4>
+        Independent claims define broad patent scope ("A method of treating..."). Dependent claims narrow
+        to specifics ("...wherein the disease is cardiovascular disease"). Both are embedded individually.
+        228,661 total claims: 52,982 independent, 175,580 dependent.
+        The dependent claim toggle shows how much they contribute to the scope gap.
+
+        <h4>Data Sources</h4>
+        <ul style="margin:6px 0 6px 20px">
+          <li>2,927 NDAs (1,966 with use codes, 961 control)</li>
+          <li>228,661 patent method-of-use claims</li>
+          <li>17,761 parsed label indications</li>
+          <li>4,421 FDA use code descriptions</li>
+          <li>Orange Book snapshots 1988&ndash;2024</li>
+        </ul>
+
+        <h4>Network Data</h4>
+        1,013,672 claim-UC edges (all pairs with cosine &ge; 0.88) across 1,924 NDAs.
+        80.8% of edges from independent claims, 19.2% from dependent claims.
+        The "Top N per UC" control adjusts how many claims are shown per use code.
+      </div>
     </div>
   </div>
 </div>
@@ -250,6 +313,7 @@ function init() {
   // View toggle
   document.getElementById('view-simple').addEventListener('click', () => setView('simple'));
   document.getElementById('view-gat').addEventListener('click', () => setView('gat'));
+  document.getElementById('view-heatmap').addEventListener('click', () => setView('heatmap'));
 
   // Dependent claim toggle
   document.getElementById('show-dep').addEventListener('change', e => {
@@ -289,8 +353,13 @@ function setView(view) {
   currentView = view;
   document.getElementById('view-simple').classList.toggle('active', view === 'simple');
   document.getElementById('view-gat').classList.toggle('active', view === 'gat');
-  document.getElementById('dep-toggle').style.display = view === 'gat' ? '' : 'none';
+  document.getElementById('view-heatmap').classList.toggle('active', view === 'heatmap');
+  document.getElementById('dep-toggle').style.display = (view === 'gat' || view === 'heatmap') ? '' : 'none';
   document.getElementById('density-control').style.display = view === 'gat' ? '' : 'none';
+
+  // Show/hide SVG vs heatmap canvas
+  document.querySelector('.network-container').style.display = view === 'heatmap' ? 'none' : '';
+  document.getElementById('heatmap-wrap').style.display = view === 'heatmap' ? '' : 'none';
 
   // Update legend
   const legend = document.getElementById('net-legend');
@@ -333,23 +402,27 @@ function togglePlay() {
 
     const years = tl.map(d => d.y);
     const slider = document.getElementById('year-slider');
-    let idx = years.indexOf(parseInt(slider.value));
-    if (idx < 0) idx = 0;
+
+    // Always start playback from the first year
+    let idx = 0;
+    const firstYr = years[0];
+    slider.value = firstYr;
+    document.getElementById('year-label').textContent = firstYr;
+    renderNetwork(selectedDrug, firstYr);
 
     btn.innerHTML = '&#9724; Stop';
     btn.classList.add('playing');
 
     playInterval = setInterval(() => {
-      idx = (idx + 1) % years.length;
+      idx++;
+      if (idx >= years.length) {
+        stopPlay();
+        return;
+      }
       const yr = years[idx];
       slider.value = yr;
       document.getElementById('year-label').textContent = yr;
       renderNetwork(selectedDrug, yr);
-
-      // Loop back to start after reaching end
-      if (idx === years.length - 1) {
-        // Brief pause at end, then continue
-      }
     }, 1200);
   }
 }
@@ -418,15 +491,21 @@ function selectDrug(nda) {
 
   drawDrugChart(nda);
 
-  // Set slider to drug's latest year
+  // Set slider range to drug's actual years
   const tl = DATA.timelines[nda];
+  const slider = document.getElementById('year-slider');
   if (tl && tl.length > 0) {
+    const firstYear = tl[0].y;
     const lastYear = tl[tl.length - 1].y;
-    document.getElementById('year-slider').value = lastYear;
+    slider.min = firstYear;
+    slider.max = lastYear;
+    slider.value = lastYear;
     document.getElementById('year-label').textContent = lastYear;
     renderNetwork(nda, lastYear);
   } else {
-    renderNetwork(nda, parseInt(document.getElementById('year-slider').value));
+    slider.min = 1988;
+    slider.max = 2024;
+    renderNetwork(nda, parseInt(slider.value));
   }
 }
 
@@ -601,7 +680,9 @@ function drawDrugChart(nda) {
 function renderNetwork(nda, year) {
   if (currentSim) { currentSim.stop(); currentSim = null; }
 
-  if (currentView === 'gat' && DATA.networks && DATA.networks[nda]) {
+  if (currentView === 'heatmap' && DATA.networks && DATA.networks[nda]) {
+    renderHeatmap(nda, year);
+  } else if (currentView === 'gat' && DATA.networks && DATA.networks[nda]) {
     renderGATNetwork(nda, year);
   } else {
     renderSimpleNetwork(nda, year);
@@ -1082,7 +1163,198 @@ function renderGATNetwork(nda, year) {
   ).join('');
 }
 
-// (tooltips are now handled inline in each network renderer)
+// ======================================================================
+// Heatmap view (claims x use codes matrix)
+// ======================================================================
+function renderHeatmap(nda, year) {
+  const svg = d3.select('#network-svg');
+  svg.selectAll('*').remove();
+
+  const net = DATA.networks[nda];
+  const tl = DATA.timelines[nda];
+  const drug = DATA.drugs.find(d => d.nda === nda);
+  const drugName = drug ? drug.name : nda;
+
+  if (!net || !tl) return;
+
+  // Find closest year
+  let best = tl[0];
+  for (const entry of tl) { if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry; }
+
+  const activeUCs = new Set((best.ucs || []).map(u => u.c));
+  const indUCmap = {};
+  (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
+
+  // Filter edges
+  let filteredEdges = net.edges.filter(e =>
+    activeUCs.has(e.u) && (showDepClaims || e.k !== 'dep')
+  );
+
+  // Get unique claims and UCs
+  const claimIds = [...new Set(filteredEdges.map(e => e.c))];
+  const ucCodes = [...new Set(filteredEdges.map(e => e.u))];
+  if (claimIds.length === 0 || ucCodes.length === 0) return;
+
+  // Build similarity matrix
+  const simMap = {};
+  filteredEdges.forEach(e => { simMap[e.c + '|' + e.u] = e.s; });
+
+  // Build claim metadata
+  const claimMeta = {};
+  net.patents.forEach(p => {
+    p.claims.forEach(c => {
+      claimMeta[c.id] = { patent: p.pat, kind: c.kind, text: c.text };
+    });
+  });
+
+  // UC descriptions
+  const ucDescMap = {};
+  net.use_codes.forEach(uc => { ucDescMap[uc.code] = uc.desc; });
+
+  // Sort claims by patent then kind
+  claimIds.sort((a, b) => {
+    const ma = claimMeta[a] || {}, mb = claimMeta[b] || {};
+    if (ma.patent !== mb.patent) return (ma.patent || '').localeCompare(mb.patent || '');
+    if (ma.kind !== mb.kind) return ma.kind === 'indep' ? -1 : 1;
+    return a.localeCompare(b);
+  });
+
+  // Canvas rendering
+  const canvas = document.getElementById('heatmap-canvas');
+  const ctx = canvas.getContext('2d');
+
+  const cellW = Math.max(16, Math.min(40, 600 / ucCodes.length));
+  const cellH = Math.max(8, Math.min(20, 500 / claimIds.length));
+  const labelLeft = 100;
+  const labelTop = 80;
+  const w = labelLeft + ucCodes.length * cellW + 60;
+  const h = labelTop + claimIds.length * cellH + 20;
+
+  canvas.width = w;
+  canvas.height = h;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
+  // Title
+  ctx.fillStyle = '#1a365d';
+  ctx.font = 'bold 14px Segoe UI, Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${drugName} — ${best.y} | ${claimIds.length} claims x ${ucCodes.length} UCs`, 8, 16);
+
+  // Color scale: 0.82-1.0 mapped to white->blue->red
+  function simColor(s) {
+    if (s == null) return '#f5f5f5';
+    const t = Math.max(0, Math.min(1, (s - 0.82) / 0.18));
+    if (t < 0.5) {
+      const u = t * 2;
+      return `rgb(${Math.round(245 - u * 200)},${Math.round(245 - u * 180)},${Math.round(245 - u * 50)})`;
+    } else {
+      const u = (t - 0.5) * 2;
+      return `rgb(${Math.round(45 + u * 170)},${Math.round(65 - u * 50)},${Math.round(195 - u * 180)})`;
+    }
+  }
+
+  // UC labels (top)
+  ctx.save();
+  ctx.font = `${Math.min(10, cellW - 2)}px Arial`;
+  ctx.fillStyle = '#555';
+  ctx.textAlign = 'left';
+  ucCodes.forEach((uc, j) => {
+    ctx.save();
+    ctx.translate(labelLeft + j * cellW + cellW / 2, labelTop - 4);
+    ctx.rotate(-Math.PI / 3);
+    ctx.fillText(uc, 0, 0);
+    ctx.restore();
+  });
+  ctx.restore();
+
+  // Draw cells
+  claimIds.forEach((cid, i) => {
+    const meta = claimMeta[cid] || {};
+    const y = labelTop + i * cellH;
+
+    // Claim label (left)
+    ctx.font = `${Math.min(9, cellH - 1)}px Arial`;
+    ctx.fillStyle = '#777';
+    ctx.textAlign = 'right';
+    const shortLabel = (meta.kind === 'indep' ? 'I' : 'D') + ':' + (meta.patent || '').slice(-5);
+    ctx.fillText(shortLabel, labelLeft - 4, y + cellH - 2);
+
+    // Cells
+    ucCodes.forEach((uc, j) => {
+      const x = labelLeft + j * cellW;
+      const sim = simMap[cid + '|' + uc] || null;
+      ctx.fillStyle = simColor(sim);
+      ctx.fillRect(x, y, cellW - 1, cellH - 1);
+
+      // Outline for high similarity
+      if (sim && sim >= 0.95) {
+        ctx.strokeStyle = '#D55E00';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, cellW - 1, cellH - 1);
+      }
+    });
+  });
+
+  // Color legend
+  const legX = labelLeft + ucCodes.length * cellW + 10;
+  const legH = Math.min(150, h - labelTop - 20);
+  for (let i = 0; i < legH; i++) {
+    const s = 1.0 - (i / legH) * 0.18;
+    ctx.fillStyle = simColor(s);
+    ctx.fillRect(legX, labelTop + i, 12, 1);
+  }
+  ctx.font = '9px Arial';
+  ctx.fillStyle = '#666';
+  ctx.textAlign = 'left';
+  ctx.fillText('1.0', legX + 16, labelTop + 8);
+  ctx.fillText('0.88', legX + 16, labelTop + legH);
+  ctx.fillText('sim', legX + 2, labelTop - 4);
+
+  // Tooltip on hover
+  const tooltip = document.getElementById('tooltip');
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const col = Math.floor((mx - labelLeft) / cellW);
+    const row = Math.floor((my - labelTop) / cellH);
+
+    if (col >= 0 && col < ucCodes.length && row >= 0 && row < claimIds.length) {
+      const uc = ucCodes[col];
+      const cid = claimIds[row];
+      const sim = simMap[cid + '|' + uc] || null;
+      const meta = claimMeta[cid] || {};
+      const iu = indUCmap[uc] || null;
+
+      let html = `<strong>${uc}</strong>`;
+      const desc = ucDescMap[uc];
+      if (desc) html += `<div class="tt-claim-text">${desc}</div>`;
+      html += `<div style="margin-top:6px"><strong>${meta.kind === 'indep' ? 'Independent' : 'Dependent'} Claim</strong> (Pat ...${(meta.patent||'').slice(-6)})</div>`;
+      if (meta.text) html += `<div class="tt-claim-text">"${meta.text.substring(0, 200)}${meta.text.length > 200 ? '...' : ''}"</div>`;
+      html += `<div class="tt-label" style="margin-top:6px">Claim-UC similarity</div>`;
+      html += `<div class="tt-sim" style="font-size:15px">${sim != null ? sim.toFixed(4) : 'below threshold'}</div>`;
+      if (iu != null) {
+        html += `<div class="tt-label">Indication-UC</div><div>${iu.toFixed(4)}</div>`;
+        if (sim != null) {
+          const gap = sim - iu;
+          html += `<div class="tt-label">Gap</div><div class="tt-sim" style="color:${gap > 0 ? '#D55E00' : '#009E73'}">${gap >= 0 ? '+' : ''}${gap.toFixed(4)}</div>`;
+        }
+      }
+      tooltip.innerHTML = html;
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.pageX + 14) + 'px';
+      tooltip.style.top = (e.pageY - 14) + 'px';
+    } else {
+      tooltip.style.display = 'none';
+    }
+  };
+  canvas.onmouseout = function() { tooltip.style.display = 'none'; };
+
+  // Patent legend
+  document.getElementById('pat-legend').innerHTML = '';
+}
 </script>
 </body>
 </html>
