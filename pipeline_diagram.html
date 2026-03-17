@@ -324,31 +324,41 @@
 </div>
 
 <!-- Timeline -->
-<div class="timeline-bar">
+<div class="timeline-bar" style="padding: 16px 20px 20px 20px;">
   <h2>Temporal Coverage</h2>
-  <div style="display:flex; align-items:center; gap:0; margin:15px 0 25px 0; position:relative;">
-    <!-- NBER segment -->
-    <div style="flex:31; height:10px; background:linear-gradient(90deg, #2a4055, #3a5575); border-radius:5px 0 0 5px; position:relative;">
-      <span style="position:absolute; top:-16px; left:0; font-size:0.7em; color:#7dcfff;">1985</span>
-      <span style="position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); font-size:0.65em; color:#3a5575;">NBER (31 editions)</span>
+
+  <!-- Row 1: Case markers (above the bar) -->
+  <div style="position:relative; height:20px; margin-top:12px;">
+    <div style="position:absolute; left:calc((36/39) * 100%); font-size:0.65em; color:#f7768e; white-space:nowrap; transform:translateX(-50%);">GSK v. Teva (2021)</div>
+    <div style="position:absolute; right:0; font-size:0.65em; color:#f7768e; white-space:nowrap; text-align:right;">Amarin v. Hikma (2024)</div>
+  </div>
+
+  <!-- Row 2: Marker lines + main bar -->
+  <div style="position:relative; height:10px;">
+    <!-- Marker lines -->
+    <div style="position:absolute; left:calc((36/39) * 100%); top:-4px; width:2px; height:18px; background:#f7768e; z-index:2;"></div>
+    <div style="position:absolute; left:calc((39/39) * 100% - 1px); top:-4px; width:2px; height:18px; background:#f7768e; z-index:2;"></div>
+    <!-- Bar segments -->
+    <div style="display:flex; height:10px; border-radius:5px; overflow:hidden;">
+      <div style="flex:32; background:linear-gradient(90deg, #2a4055, #3a5575);"></div>
+      <div style="flex:2; background:linear-gradient(90deg, #3a5575, #2a5540);"></div>
+      <div style="flex:6; background:linear-gradient(90deg, #2a5540, #3a7560);"></div>
     </div>
-    <!-- Gap fill (resolved) -->
-    <div style="flex:2; height:10px; background:linear-gradient(90deg, #3a5575, #2a5540); position:relative;">
-      <span style="position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); font-size:0.6em; color:#9ece6a; white-space:nowrap;">2017–18 ✓ filled</span>
-    </div>
-    <!-- Modern OB -->
-    <div style="flex:6; height:10px; background:linear-gradient(90deg, #2a5540, #3a7560); border-radius:0 5px 5px 0; position:relative;">
-      <span style="position:absolute; top:-16px; right:0; font-size:0.7em; color:#9ece6a;">2024</span>
-      <span style="position:absolute; bottom:-16px; left:50%; transform:translateX(-50%); font-size:0.65em; color:#3a7560;">Modern OB</span>
-    </div>
-    <!-- Markers -->
-    <div style="position:absolute; left:calc(31/39 * 100% - 3.5/39 * 100%); top:-6px; width:2px; height:22px; background:#f7768e;"></div>
-    <div style="position:absolute; left:calc(31/39 * 100% - 3.5/39 * 100%); top:-22px; font-size:0.6em; color:#f7768e; white-space:nowrap; transform:translateX(-50%);">GSK v. Teva (2021)</div>
-    <div style="position:absolute; left:calc(100% - 1/39 * 100%); top:-6px; width:2px; height:22px; background:#f7768e;"></div>
-    <div style="position:absolute; left:calc(100% - 1/39 * 100%); top:-22px; font-size:0.6em; color:#f7768e; white-space:nowrap; transform:translateX(-50%);">Amarin v. Hikma (2024)</div>
-    <!-- Labels overlap bar -->
-    <div style="position:absolute; left:calc(13/39 * 100%); right:0; top:16px; height:4px; background:linear-gradient(90deg, transparent, #bb9af7 5%, #bb9af7); border-radius:2px;"></div>
-    <div style="position:absolute; left:calc(13/39 * 100%); top:24px; font-size:0.6em; color:#bb9af7;">← Labels available (1998–2026) →</div>
+  </div>
+
+  <!-- Row 3: Year labels + source labels -->
+  <div style="position:relative; height:18px; margin-top:4px;">
+    <span style="position:absolute; left:0; font-size:0.7em; color:#7dcfff;">1985</span>
+    <span style="position:absolute; left:16%; font-size:0.6em; color:#3a5575; transform:translateX(-50%);">NBER (31 editions)</span>
+    <span style="position:absolute; left:calc((32.5/39) * 100%); font-size:0.6em; color:#9ece6a; transform:translateX(-50%); white-space:nowrap;">17–18 ✓</span>
+    <span style="position:absolute; left:calc((36/39) * 100%); font-size:0.6em; color:#3a7560; transform:translateX(-50%); white-space:nowrap;">Modern</span>
+    <span style="position:absolute; right:0; font-size:0.7em; color:#9ece6a;">2024</span>
+  </div>
+
+  <!-- Row 4: Labels availability bar -->
+  <div style="position:relative; height:20px; margin-top:8px;">
+    <div style="position:absolute; left:calc((13/39) * 100%); right:0; top:0; height:4px; background:linear-gradient(90deg, transparent, #bb9af7 5%, #bb9af7); border-radius:2px;"></div>
+    <div style="position:absolute; left:calc((13/39) * 100%); top:7px; font-size:0.6em; color:#bb9af7;">← Labels available (1998–2024) →</div>
   </div>
 </div>
 
