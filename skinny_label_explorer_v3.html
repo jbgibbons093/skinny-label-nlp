@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Skinny Label Patent Network Explorer v2</title>
+<title>Skinny Label Patent Network Explorer v3</title>
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
   :root {
@@ -35,15 +35,75 @@
   .load-more { padding: 8px; text-align: center; color: var(--blue); cursor: pointer; font-size: 12px; font-weight: 600; }
   .load-more:hover { background: #eef; border-radius: 4px; }
   .content { display: flex; flex-direction: column; gap: 16px; }
+  .tabbar { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tabbar button { border: 1px solid #d8e0e8; background: white; color: #4a5565; border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .tabbar button.active { background: #1a365d; color: white; border-color: #1a365d; }
+  .tab-panel { display: none; flex-direction: column; gap: 16px; }
+  .tab-panel.active { display: flex; }
   .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .detail-stat { background: linear-gradient(180deg, #fbfcfd, #f4f7fa); border: 1px solid #e7edf2; border-radius: 8px; padding: 12px; }
+  .detail-stat .label { font-size: 11px; color: #708090; text-transform: uppercase; letter-spacing: 0.4px; }
+  .detail-stat .value { font-size: 20px; font-weight: 700; color: #1a365d; margin-top: 4px; }
+  .detail-stat .sub { font-size: 11px; color: #8d98a5; margin-top: 2px; }
+  .snapshot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+  .snapshot-card { border: 1px solid #e4ebf1; border-radius: 10px; padding: 14px; background: linear-gradient(180deg, #fbfcfd, #f6f9fb); }
+  .snapshot-card h4 { font-size: 13px; color: #1a365d; margin-bottom: 8px; }
+  .snapshot-meta { font-size: 11px; color: #7a8794; margin-bottom: 10px; }
+  .snapshot-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .snapshot-pill { min-width: 92px; padding: 8px 10px; border-radius: 10px; background: white; border: 1px solid #e4ebf1; }
+  .snapshot-pill .label { display: block; font-size: 10px; color: #7a8794; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .snapshot-pill .value { font-size: 16px; font-weight: 700; color: #1f2937; }
+  .snapshot-foot { margin-top: 10px; font-size: 11px; color: #667085; line-height: 1.5; }
   #trend-chart { width: 100%; height: 260px; }
   #drug-chart { width: 100%; height: 260px; }
+  .chart-note { font-size: 11px; color: #7a8794; margin-top: 8px; }
   .network-container { max-height: 600px; overflow-y: auto; overflow-x: hidden; border-radius: 6px; }
   #network-svg { width: 100%; min-height: 400px; background: #fafbfc; border-radius: 6px; }
   .network-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .year-slider { display: flex; align-items: center; gap: 8px; flex: 1; }
   .year-slider input[type="range"] { flex: 1; min-width: 150px; }
   .year-slider .year-label { font-size: 18px; font-weight: 700; color: var(--blue); min-width: 50px; }
+  .filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eef1f4; }
+  .filter-field { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray); position: relative; }
+  .filter-field select, .filter-field input { font-size: 12px; padding: 5px 8px; border: 1px solid #ccd3da; border-radius: 5px; background: white; }
+  .filter-trigger { border: 1px solid #ccd3da; background: white; border-radius: 6px; padding: 5px 10px; font-size: 12px; color: #333; cursor: pointer; max-width: 210px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .filter-trigger:hover { background: #f8fafc; }
+  .filter-popover { display: none; position: absolute; top: calc(100% + 6px); left: 0; width: 260px; max-height: 280px; overflow: hidden; background: white; border: 1px solid #d8e0e8; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 300; }
+  .filter-popover.open { display: block; }
+  .filter-popover .filter-search { width: calc(100% - 16px); margin: 8px; }
+  .filter-actions { display: flex; gap: 6px; padding: 0 8px 8px; }
+  .filter-actions button, .filter-reset { border: 1px solid #ccd3da; background: white; border-radius: 5px; padding: 5px 8px; font-size: 12px; cursor: pointer; }
+  .filter-actions button:hover, .filter-reset:hover { background: #f8fafc; }
+  .filter-options { max-height: 180px; overflow-y: auto; border-top: 1px solid #eef1f4; padding: 6px 0; }
+  .filter-option { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: 12px; color: #333; }
+  .filter-option:hover { background: #f7f9fb; }
+  .filter-option input { margin: 0; }
+  .filter-summary { margin-left: auto; font-size: 11px; color: #7a8794; }
+  .inline-select { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #475467; }
+  .inline-select select { padding: 6px 8px; border-radius: 8px; border: 1px solid #d0d5dd; background: white; font-size: 12px; }
+  .directory-controls { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+  .directory-controls input, .directory-controls select { width: 100%; font-size: 12px; padding: 8px 10px; border: 1px solid #ccd3da; border-radius: 6px; background: white; }
+  .directory-table-wrap { max-height: 720px; overflow: auto; border: 1px solid #e6ebf0; border-radius: 8px; }
+  .directory-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1180px; }
+  .directory-table th { position: sticky; top: 0; background: #f7f9fb; z-index: 1; text-align: left; padding: 10px; border-bottom: 1px solid #dde5ec; color: #64717f; text-transform: uppercase; letter-spacing: 0.4px; font-size: 11px; }
+  .directory-table td { padding: 10px; border-bottom: 1px solid #eef2f5; vertical-align: top; }
+  .directory-table tr:hover { background: #fbfdff; }
+  .directory-table button { border: 1px solid #ccd3da; background: white; border-radius: 5px; padding: 4px 8px; font-size: 11px; cursor: pointer; }
+  .directory-meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; color: #74808d; }
+  .network-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 3px 7px; border-radius: 999px; border: 1px solid #dbe4ef; background: #f8fafc; color: #475467; }
+  .network-badge.good { color: #0f766e; background: #ecfdf5; border-color: #a7f3d0; }
+  .network-badge.warn { color: #9a3412; background: #fff7ed; border-color: #fed7aa; }
+  .network-badge.missing { color: #6b7280; background: #f8fafc; border-color: #e5e7eb; }
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { border-radius: 999px; padding: 5px 10px; font-size: 11px; font-weight: 600; background: #eef3f8; color: #516170; }
+  .info-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+  .arch-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .arch-card { background: linear-gradient(180deg, #fbfcfd, #f6f9fb); border: 1px solid #e4ebf1; border-radius: 10px; padding: 14px; }
+  .arch-card h4 { font-size: 13px; color: #1a365d; margin-bottom: 6px; }
+  .arch-card p, .arch-card li { font-size: 12px; color: #5b6774; line-height: 1.5; }
+  .arch-card ul { margin-left: 18px; }
   .play-btn { background: var(--blue); color: white; border: none; border-radius: 6px; padding: 6px 14px;
     font-size: 13px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 4px; }
   .play-btn:hover { opacity: 0.85; }
@@ -93,7 +153,8 @@
   .methods-body.open { display: block; }
   .methods-body h4 { color: var(--blue); margin: 12px 0 4px; font-size: 13px; }
   .methods-body code { background: #f0f2f5; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
-  @media (max-width: 900px) { .main { grid-template-columns: 1fr; } .panels { grid-template-columns: 1fr; } }
+  @media (max-width: 1100px) { .directory-controls, .detail-grid, .arch-grid, .info-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 900px) { .main { grid-template-columns: 1fr; } .panels, .directory-controls, .detail-grid, .arch-grid, .info-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -123,12 +184,32 @@
   </div>
 
   <div class="content">
+    <div class="card">
+      <div class="tabbar">
+        <button class="active" data-tab="explorer" id="tab-explorer">Explorer</button>
+        <button data-tab="directory" id="tab-directory">Drug Directory</button>
+        <button data-tab="methods" id="tab-methods">Model Architecture</button>
+        <button data-tab="context" id="tab-context">Interpretation & Context</button>
+      </div>
+    </div>
+
+    <div class="tab-panel active" id="panel-explorer">
+    <div class="card">
+      <h3>Selected Drug Overview</h3>
+      <div class="detail-grid">
+        <div class="detail-stat"><div class="label">Drug</div><div class="value" id="d-name">Select a drug</div><div class="sub" id="d-ingredient">-</div></div>
+        <div class="detail-stat"><div class="label">Scope Gap</div><div class="value" id="d-gap">-</div><div class="sub" id="d-gap-sub">Latest observed year</div></div>
+        <div class="detail-stat"><div class="label">Use Codes</div><div class="value" id="d-ucs">-</div><div class="sub" id="d-claims">-</div></div>
+        <div class="detail-stat"><div class="label">Interpretation</div><div class="value" id="d-read">-</div><div class="sub" id="d-read-sub">-</div></div>
+      </div>
+    </div>
     <div class="panels">
       <div class="card">
         <h3>Aggregate Temporal Trends
           <span class="help-icon">?<span class="help-tip">Shows how patent claim similarity to use codes (red), label indication similarity to use codes (green), and the scope gap (purple, dashed) have changed across all drugs from 1988-2024. Vertical dashed lines mark GSK v. Teva (2021) and Amarin v. Hikma (2024). The gap between red and green lines is the average scope gap — when red is above green, patent claims semantically exceed what the label covers.</span></span>
         </h3>
         <canvas id="trend-chart"></canvas>
+        <div class="chart-note" id="trend-note">Hover for year-level detail. Click a year to sync the network timeline.</div>
         <div class="legend">
           <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Claim-UC</div>
           <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Ind-UC</div>
@@ -140,6 +221,36 @@
           <span class="help-icon">?<span class="help-tip">Shows how this drug's similarities change over its Orange Book lifetime. <strong>Red (Claim-UC):</strong> how closely patent claims match use code descriptions. <strong>Green (Ind-UC):</strong> how closely the drug's label matches use codes. <strong>Purple dashed (Scope Gap):</strong> the difference. When purple is positive, patent claims semantically reach beyond what the label covers — the core of the skinny label problem.</span></span>
         </h3>
         <canvas id="drug-chart"></canvas>
+        <div class="chart-note" id="drug-note">Hover for year detail. Click a point to move the timeline and network there.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Interactive Snapshot</h3>
+      <div class="snapshot-grid">
+        <div class="snapshot-card">
+          <h4>Aggregate Year Snapshot</h4>
+          <div class="snapshot-meta" id="agg-snapshot-meta">Select a year from the charts or timeline.</div>
+          <div class="snapshot-row">
+            <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="agg-cu">-</span></div>
+            <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="agg-iu">-</span></div>
+            <div class="snapshot-pill"><span class="label">Scope Gap</span><span class="value" id="agg-gap">-</span></div>
+            <div class="snapshot-pill"><span class="label">NDAs</span><span class="value" id="agg-ndas">-</span></div>
+          </div>
+          <div class="snapshot-foot" id="agg-foot">Temporal trends are interactive: click a year to sync the explorer below.</div>
+        </div>
+        <div class="snapshot-card">
+          <h4>Selected Drug-Year Snapshot</h4>
+          <div class="snapshot-meta" id="drug-snapshot-meta">Select a drug to inspect its active year slice.</div>
+          <div class="snapshot-row">
+            <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="drug-cu">-</span></div>
+            <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="drug-iu">-</span></div>
+            <div class="snapshot-pill"><span class="label">Scope Gap</span><span class="value" id="drug-gap">-</span></div>
+            <div class="snapshot-pill"><span class="label">Use Codes</span><span class="value" id="drug-active-ucs">-</span></div>
+            <div class="snapshot-pill"><span class="label">Patents</span><span class="value" id="drug-active-pats">-</span></div>
+          </div>
+          <div class="snapshot-foot" id="drug-foot">The year slider, play control, and filters stay in sync.</div>
+        </div>
       </div>
     </div>
 
@@ -149,6 +260,13 @@
       </h3>
       <div class="network-controls">
         <button class="play-btn" id="play-btn" title="Animate through years">&#9654; Play</button>
+        <label class="inline-select">Speed
+          <select id="play-speed">
+            <option value="normal">Normal</option>
+            <option value="slow">Slow</option>
+            <option value="fast">Fast</option>
+          </select>
+        </label>
         <div class="year-slider">
           <span style="font-size:12px">Year:</span>
           <input type="range" id="year-slider" min="1988" max="2024" value="2024" step="1">
@@ -163,7 +281,39 @@
         <label id="density-control" style="display:none; font-size:12px; white-space:nowrap;">
           Top <input type="number" id="top-n-per-uc" value="20" min="1" max="999" style="width:48px; font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:4px;"> per UC
         </label>
-        <input type="text" id="uc-filter" placeholder="Filter UCs..." style="display:none; width:100px; padding:4px 8px; font-size:12px; border:1px solid #ccc; border-radius:4px;">
+      </div>
+      <div class="filter-bar" id="advanced-filters" style="display:none;">
+        <label class="filter-field">Claims
+          <select id="claim-kind-filter">
+            <option value="all">All</option>
+            <option value="indep">Independent</option>
+            <option value="dep">Dependent</option>
+          </select>
+        </label>
+        <div class="filter-field">
+          <button type="button" class="filter-trigger" id="uc-filter-btn">Use Codes: All</button>
+          <div class="filter-popover" id="uc-filter-popover">
+            <input type="text" id="uc-filter-search" class="filter-search" placeholder="Search use codes...">
+            <div class="filter-actions">
+              <button type="button" id="uc-filter-all">All</button>
+              <button type="button" id="uc-filter-clear">Clear</button>
+            </div>
+            <div class="filter-options" id="uc-filter-options"></div>
+          </div>
+        </div>
+        <div class="filter-field">
+          <button type="button" class="filter-trigger" id="patent-filter-btn">Patents: All</button>
+          <div class="filter-popover" id="patent-filter-popover">
+            <input type="text" id="patent-filter-search" class="filter-search" placeholder="Search patents...">
+            <div class="filter-actions">
+              <button type="button" id="patent-filter-all">All</button>
+              <button type="button" id="patent-filter-clear">Clear</button>
+            </div>
+            <div class="filter-options" id="patent-filter-options"></div>
+          </div>
+        </div>
+        <button type="button" class="filter-reset" id="reset-advanced-filters">Reset Filters</button>
+        <div class="filter-summary" id="filter-summary">No advanced filters</div>
       </div>
       <div class="network-container"><svg id="network-svg"></svg></div>
       <div class="heatmap-container" id="heatmap-wrap" style="display:none"><canvas id="heatmap-canvas"></canvas></div>
@@ -238,6 +388,130 @@
         </ul>
       </div>
     </div>
+    </div>
+
+    <div class="tab-panel" id="panel-directory">
+      <div class="card">
+        <h3>Drug Directory</h3>
+        <div class="directory-controls">
+          <input type="text" id="dir-search" placeholder="Search drug, NDA, ingredient, class-like keyword...">
+          <select id="dir-family">
+            <option value="all">All ingredient families</option>
+          </select>
+          <select id="dir-gap-sign">
+            <option value="all">All scope gap directions</option>
+            <option value="positive">Positive scope gap only</option>
+            <option value="negative">Negative scope gap only</option>
+            <option value="missing">Missing scope gap only</option>
+          </select>
+          <select id="dir-usecodes">
+            <option value="all">All use-code sizes</option>
+            <option value="1">1+ use code</option>
+            <option value="5">5+ use codes</option>
+            <option value="10">10+ use codes</option>
+            <option value="25">25+ use codes</option>
+            <option value="50">50+ use codes</option>
+          </select>
+          <select id="dir-sort">
+            <option value="gap_desc">Sort: scope gap high to low</option>
+            <option value="gap_asc">Sort: scope gap low to high</option>
+            <option value="edge_desc">Sort: network edges high to low</option>
+            <option value="uc_desc">Sort: use codes high to low</option>
+            <option value="name_asc">Sort: name A-Z</option>
+            <option value="year_desc">Sort: latest year</option>
+          </select>
+          <select id="dir-network">
+            <option value="all">All network availability</option>
+            <option value="loaded">Has claim-level network</option>
+            <option value="missing">Missing claim-level network</option>
+            <option value="heavy">Heavy network only</option>
+          </select>
+          <select id="dir-complexity">
+            <option value="all">All network sizes</option>
+            <option value="small">Small (1-199 edges)</option>
+            <option value="medium">Medium (200-999 edges)</option>
+            <option value="large">Large (1000+ edges)</option>
+          </select>
+          <input type="text" id="dir-ingredient" placeholder="Filter ingredient / class keyword">
+        </div>
+        <div class="directory-meta">
+          <div id="dir-meta">Loading directory…</div>
+          <div class="pill-row">
+            <span class="pill">Click Open to sync Explorer</span>
+            <span class="pill">Ingredient keyword doubles as class proxy in current export</span>
+          </div>
+        </div>
+        <div class="directory-table-wrap">
+          <table class="directory-table">
+            <thead>
+              <tr>
+                <th>Drug</th>
+                <th>Ingredient / keyword</th>
+                <th>Scope gap</th>
+                <th>Use codes</th>
+                <th>Claim-UC</th>
+                <th>Ind-UC</th>
+                <th>Year</th>
+                <th>Network</th>
+                <th>Edges</th>
+                <th>Open</th>
+              </tr>
+            </thead>
+            <tbody id="directory-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-methods">
+      <div class="card">
+        <h3>Model Architecture & Pipeline</h3>
+        <div class="arch-grid">
+          <div class="arch-card"><h4>Three Text Registers</h4><p>Patent claims, Orange Book use-code descriptions, and approved label indications remain separate semantic objects throughout the interface.</p></div>
+          <div class="arch-card"><h4>Embedding Layer</h4><p><strong>S-PubMedBert-MS-MARCO</strong> embeds all text types in one 768-dimensional space so claim, use-code, and indication comparisons stay directly comparable.</p></div>
+          <div class="arch-card"><h4>Similarity Engine</h4><p>The site exposes Claim↔UC, Indication↔UC, and derived scope gap. It is meant for exploration and interpretation, not only static figure recreation.</p></div>
+          <div class="arch-card"><h4>Website Architecture</h4><p><code>site_data.json</code> powers fast overview panels. Claim-level networks are lazy-loaded per NDA from <code>networks/</code> and cached in-session.</p></div>
+          <div class="arch-card"><h4>Performance Controls</h4><ul><li>Per-drug lazy loading</li><li>Hard SVG caps for dense views</li><li>Reduced Sankey on heavy drugs</li><li>Persistent filters with timeline playback</li></ul></div>
+          <div class="arch-card"><h4>Validation Status</h4><p>The site surfaces the exploratory nature of scope gap directly. Manual mapping validation is still pending, so the interface emphasizes comparison and context rather than hard classification.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-context">
+      <div class="info-grid">
+        <div class="stack">
+          <div class="card">
+            <h3>How To Use The Explorer</h3>
+            <div class="pill-row">
+              <span class="pill">1. Pick a drug</span>
+              <span class="pill">2. Click a year in a chart</span>
+              <span class="pill">3. Filter claims, patents, and UCs</span>
+              <span class="pill">4. Compare Network, Heatmap, and Sankey</span>
+            </div>
+            <p class="info-text" style="margin-top:10px">The timeline and filters are designed to work together: once you isolate a set of claims or use codes, the same slice follows you through time and across visual views.</p>
+          </div>
+          <div class="card">
+            <h3>Interpretive Guidance</h3>
+            <p class="info-text">A positive scope gap highlights where claim language semantically tracks a use code more strongly than the approved label does. That is a signal for closer review, not proof of legal overreach by itself.</p>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <h3>Legal & Policy Context</h3>
+            <p class="info-text">Skinny labeling turns on whether patented uses can be separated cleanly from retained label language. This interface helps trace where patent claims, use codes, and indications appear aligned, overlapping, or difficult to disentangle.</p>
+          </div>
+          <div class="card">
+            <h3>Current Export Limits</h3>
+            <ul style="margin-left:18px; color:#5b6774; font-size:12px; line-height:1.6">
+              <li>No curated therapeutic class variable is present in the website JSON export.</li>
+              <li>Directory filtering therefore uses ingredient and keyword matching as a class proxy.</li>
+              <li>Large claim-level views may render reduced subsets for speed and stability.</li>
+              <li>Some treatment NDAs lack scope-gap output because labels are missing or parsing failed.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -253,8 +527,17 @@ let currentFiltered = null;
 let displayedCount = 0;
 const PAGE_SIZE = 50;
 let currentView = 'simple';
+let currentTab = 'explorer';
 let playInterval = null;
 let currentSim = null;
+let directoryFamilies = [];
+const advancedFilters = {
+  claimKind: 'all',
+  useCodes: new Set(),
+  patents: new Set(),
+  ucQuery: '',
+  patentQuery: '',
+};
 
 // Network cache: loaded per-drug on demand
 const networkCache = {};
@@ -264,6 +547,7 @@ let networkIndex = null; // {nda: {edges, size}} from index.json
 const MAX_EDGES_SANKEY = 200;
 const MAX_EDGES_NETWORK = 300;
 const DEFAULT_TOP_N = 10;
+const PLAYBACK_MS = { slow: 1800, normal: 1200, fast: 700 };
 
 const PAT_COLORS = [
   '#0072B2', '#009E73', '#CC79A7', '#56B4E9', '#E69F00',
@@ -303,6 +587,7 @@ async function loadNetwork(nda) {
     const net = await r.json();
     networkCache[nda] = net;
     if (el) { el.style.display = 'none'; }
+    if (selectedDrug === nda) updateSelectedOverview(nda);
     return net;
   } catch (e) {
     console.warn(`Network load failed for ${nda}:`, e.message);
@@ -310,6 +595,425 @@ async function loadNetwork(nda) {
     if (el) { el.textContent = `Network unavailable for ${nda}`; }
     return null;
   }
+}
+
+function getClosestTimelineEntry(nda, year) {
+  const tl = DATA && DATA.timelines ? DATA.timelines[nda] : null;
+  if (!tl || tl.length === 0) return null;
+  let best = tl[0];
+  for (const entry of tl) {
+    if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry;
+  }
+  return best;
+}
+
+function getClosestAggregateYear(year) {
+  if (!DATA || !DATA.yearly || DATA.yearly.length === 0) return null;
+  let best = DATA.yearly[0];
+  for (const entry of DATA.yearly) {
+    if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry;
+  }
+  return best;
+}
+
+function tokenizeIngredient(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9/\-\s]/g, ' ')
+    .split(/[\s/,-]+/)
+    .map(t => t.trim())
+    .filter(t => t.length >= 4 && !['acid', 'tablet', 'capsule', 'solution', 'powder', 'sodium', 'chloride'].includes(t));
+}
+
+function buildDirectoryFamilies() {
+  const counts = {};
+  (DATA.drugs || []).forEach(drug => {
+    new Set(tokenizeIngredient(drug.ingredient)).forEach(token => {
+      counts[token] = (counts[token] || 0) + 1;
+    });
+  });
+  directoryFamilies = Object.entries(counts)
+    .filter(([, count]) => count >= 8)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 24)
+    .map(([token]) => token);
+}
+
+function getNetworkMeta(nda) {
+  const meta = networkIndex && networkIndex[nda] ? networkIndex[nda] : null;
+  const edges = meta ? meta.edges : null;
+  const hasNetwork = !!meta;
+  const sizeLabel = edges == null ? 'missing' : edges >= 1000 ? 'large' : edges >= 200 ? 'medium' : 'small';
+  return { meta, edges, hasNetwork, sizeLabel };
+}
+
+function getFilterContext(nda, year, net) {
+  const best = getClosestTimelineEntry(nda, year);
+  if (!best) return null;
+  const activeUCs = new Set((best.ucs || []).map(u => u.c));
+  const claimToPat = {};
+  if (net) {
+    net.patents.forEach(p => p.claims.forEach(c => { claimToPat[c.id] = p.pat; }));
+  }
+  const patents = [];
+  if (net && net.pat_ucs) {
+    Object.entries(net.pat_ucs).forEach(([pat, ucs]) => {
+      if ((ucs || []).some(uc => activeUCs.has(uc))) patents.push(pat);
+    });
+  }
+  return {
+    best,
+    activeUCs,
+    useCodes: [...activeUCs].sort(),
+    patents: patents.sort(),
+    claimToPat,
+  };
+}
+
+function updateFilterButtonLabel(id, prefix, selectedCount, totalCount) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  const text = selectedCount === 0 || selectedCount === totalCount
+    ? `${prefix}: All`
+    : `${prefix}: ${selectedCount} selected`;
+  btn.textContent = text;
+}
+
+function renderFilterOptions(containerId, options, selectedSet, query, formatter) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const q = (query || '').trim().toLowerCase();
+  const visible = options.filter(opt => opt.toLowerCase().includes(q));
+  if (visible.length === 0) {
+    container.innerHTML = '<div class="filter-option" style="color:#888">No matches</div>';
+    return;
+  }
+  container.innerHTML = visible.map(opt => `
+    <label class="filter-option">
+      <input type="checkbox" data-value="${opt}" ${selectedSet.has(opt) ? 'checked' : ''}>
+      <span>${formatter ? formatter(opt) : opt}</span>
+    </label>
+  `).join('');
+}
+
+function refreshAdvancedFilterUI(nda, year, net) {
+  const bar = document.getElementById('advanced-filters');
+  const summary = document.getElementById('filter-summary');
+  if (!bar || !summary) return;
+
+  if (currentView === 'simple' || !net) {
+    bar.style.display = currentView === 'simple' ? 'none' : '';
+    summary.textContent = !net && currentView !== 'simple'
+      ? 'Load a drug network to use advanced filters'
+      : 'No advanced filters';
+    return;
+  }
+
+  bar.style.display = '';
+  const ctx = getFilterContext(nda, year, net);
+  if (!ctx) {
+    summary.textContent = 'No advanced filters';
+    return;
+  }
+
+  advancedFilters.useCodes = new Set([...advancedFilters.useCodes].filter(v => ctx.useCodes.includes(v)));
+  advancedFilters.patents = new Set([...advancedFilters.patents].filter(v => ctx.patents.includes(v)));
+
+  document.getElementById('claim-kind-filter').value = advancedFilters.claimKind;
+  renderFilterOptions('uc-filter-options', ctx.useCodes, advancedFilters.useCodes, advancedFilters.ucQuery);
+  renderFilterOptions('patent-filter-options', ctx.patents, advancedFilters.patents, advancedFilters.patentQuery, v => `Patent ${v}`);
+  updateFilterButtonLabel('uc-filter-btn', 'Use Codes', advancedFilters.useCodes.size, ctx.useCodes.length);
+  updateFilterButtonLabel('patent-filter-btn', 'Patents', advancedFilters.patents.size, ctx.patents.length);
+
+  const parts = [];
+  if (advancedFilters.claimKind !== 'all') parts.push(advancedFilters.claimKind === 'indep' ? 'Independent claims' : 'Dependent claims');
+  if (advancedFilters.useCodes.size > 0) parts.push(`${advancedFilters.useCodes.size} UCs`);
+  if (advancedFilters.patents.size > 0) parts.push(`${advancedFilters.patents.size} patents`);
+  summary.textContent = parts.length ? parts.join(' | ') : 'No advanced filters';
+}
+
+function closeFilterPopovers() {
+  document.querySelectorAll('.filter-popover').forEach(el => el.classList.remove('open'));
+}
+
+function setupAdvancedFilters() {
+  const claimKind = document.getElementById('claim-kind-filter');
+  const ucBtn = document.getElementById('uc-filter-btn');
+  const patBtn = document.getElementById('patent-filter-btn');
+  const ucPop = document.getElementById('uc-filter-popover');
+  const patPop = document.getElementById('patent-filter-popover');
+  const ucSearch = document.getElementById('uc-filter-search');
+  const patSearch = document.getElementById('patent-filter-search');
+
+  claimKind.addEventListener('change', () => {
+    advancedFilters.claimKind = claimKind.value;
+    if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+  });
+
+  ucBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    patPop.classList.remove('open');
+    ucPop.classList.toggle('open');
+  });
+  patBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    ucPop.classList.remove('open');
+    patPop.classList.toggle('open');
+  });
+
+  ucSearch.addEventListener('input', () => {
+    advancedFilters.ucQuery = ucSearch.value;
+    refreshAdvancedFilterUI(selectedDrug, parseInt(document.getElementById('year-slider').value), networkCache[selectedDrug] || null);
+  });
+  patSearch.addEventListener('input', () => {
+    advancedFilters.patentQuery = patSearch.value;
+    refreshAdvancedFilterUI(selectedDrug, parseInt(document.getElementById('year-slider').value), networkCache[selectedDrug] || null);
+  });
+
+  document.getElementById('uc-filter-all').addEventListener('click', () => {
+    advancedFilters.useCodes.clear();
+    if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+  });
+  document.getElementById('uc-filter-clear').addEventListener('click', () => {
+    advancedFilters.useCodes = new Set();
+    if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+  });
+  document.getElementById('patent-filter-all').addEventListener('click', () => {
+    advancedFilters.patents.clear();
+    if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+  });
+  document.getElementById('patent-filter-clear').addEventListener('click', () => {
+    advancedFilters.patents = new Set();
+    if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+  });
+
+  document.getElementById('uc-filter-options').addEventListener('change', e => {
+    const value = e.target.dataset.value;
+    if (!value) return;
+    if (e.target.checked) advancedFilters.useCodes.add(value);
+    else advancedFilters.useCodes.delete(value);
+    if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+  });
+  document.getElementById('patent-filter-options').addEventListener('change', e => {
+    const value = e.target.dataset.value;
+    if (!value) return;
+    if (e.target.checked) advancedFilters.patents.add(value);
+    else advancedFilters.patents.delete(value);
+    if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+  });
+
+  document.getElementById('reset-advanced-filters').addEventListener('click', () => {
+    advancedFilters.claimKind = 'all';
+    advancedFilters.useCodes = new Set();
+    advancedFilters.patents = new Set();
+    advancedFilters.ucQuery = '';
+    advancedFilters.patentQuery = '';
+    ucSearch.value = '';
+    patSearch.value = '';
+    if (selectedDrug && currentView !== 'simple') renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+    else refreshAdvancedFilterUI(selectedDrug, parseInt(document.getElementById('year-slider').value), networkCache[selectedDrug] || null);
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.filter-field')) closeFilterPopovers();
+  });
+}
+
+function applyAdvancedFilters(net, yearCtx) {
+  const selectedUCs = advancedFilters.useCodes.size > 0 ? advancedFilters.useCodes : yearCtx.activeUCs;
+  const selectedPats = advancedFilters.patents;
+  return net.edges.filter(e => {
+    if (!yearCtx.activeUCs.has(e.u)) return false;
+    if (!selectedUCs.has(e.u)) return false;
+    if (advancedFilters.claimKind !== 'all' && e.k !== advancedFilters.claimKind) return false;
+    const pat = yearCtx.claimToPat[e.c];
+    if (selectedPats.size > 0 && !selectedPats.has(pat)) return false;
+    return true;
+  });
+}
+
+function setupTabs() {
+  document.querySelectorAll('.tabbar button[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => setTab(btn.dataset.tab));
+  });
+}
+
+function setTab(tab) {
+  if (tab !== 'explorer') stopPlay();
+  currentTab = tab;
+  document.querySelectorAll('.tabbar button[data-tab]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === `panel-${tab}`);
+  });
+  if (tab === 'directory') renderDirectory();
+  if (tab === 'explorer') {
+    drawTrendChart();
+    if (selectedDrug) drawDrugChart(selectedDrug);
+  }
+}
+
+function setupDirectoryControls() {
+  ['dir-search', 'dir-family', 'dir-gap-sign', 'dir-usecodes', 'dir-sort', 'dir-network', 'dir-complexity', 'dir-ingredient'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', renderDirectory);
+    el.addEventListener('change', renderDirectory);
+  });
+}
+
+function populateDirectoryFamilies() {
+  const select = document.getElementById('dir-family');
+  if (!select) return;
+  buildDirectoryFamilies();
+  select.innerHTML = '<option value="all">All ingredient families</option>' +
+    directoryFamilies.map(token => `<option value="${token}">${token}</option>`).join('');
+}
+
+function formatGap(ts) {
+  return ts == null ? 'N/A' : `${ts >= 0 ? '+' : ''}${ts.toFixed(3)}`;
+}
+
+function updateSelectedOverview(nda) {
+  const drug = DATA.drugs.find(d => d.nda === nda);
+  if (!drug) return;
+  const tl = DATA.timelines[nda] || [];
+  const latest = tl.length ? tl[tl.length - 1] : null;
+  const net = networkCache[nda] || null;
+  const totalClaims = net && net.patents ? net.patents.reduce((s, p) => s + (p.claims ? p.claims.length : 0), 0) : null;
+  const read = drug.trap_score == null ? 'Missing' : drug.trap_score > 0.03 ? 'High' : drug.trap_score > 0 ? 'Positive' : drug.trap_score > -0.03 ? 'Near zero' : 'Negative';
+  const readSub = drug.trap_score == null
+    ? 'Label data unavailable or parsing incomplete'
+    : drug.trap_score > 0.03
+      ? 'Claims semantically outpace the label'
+      : drug.trap_score > 0
+        ? 'Mild positive scope gap'
+        : drug.trap_score > -0.03
+          ? 'Claims and label are closely aligned'
+          : 'Label matches use codes better than claims do';
+
+  document.getElementById('d-name').textContent = `${drug.name} (${drug.nda})`;
+  document.getElementById('d-ingredient').textContent = drug.ingredient || '-';
+  document.getElementById('d-gap').textContent = formatGap(drug.trap_score);
+  document.getElementById('d-gap-sub').textContent = `Latest year: ${drug.ob_year ?? 'N/A'}`;
+  document.getElementById('d-ucs').textContent = drug.n_use_codes != null ? String(drug.n_use_codes) : '-';
+  document.getElementById('d-claims').textContent = totalClaims != null ? `${totalClaims.toLocaleString()} network claims cached` : 'Claim network loads on demand';
+  document.getElementById('d-read').textContent = read;
+  document.getElementById('d-read-sub').textContent = readSub;
+}
+
+function updateSnapshotCards() {
+  const sliderYear = parseInt(document.getElementById('year-slider')?.value || '2024', 10);
+  const agg = getClosestAggregateYear(sliderYear);
+  document.getElementById('agg-snapshot-meta').textContent = agg
+    ? `Closest aggregate year: ${agg.y}`
+    : 'Aggregate trend data unavailable';
+  document.getElementById('agg-cu').textContent = agg && agg.cu != null ? agg.cu.toFixed(3) : '-';
+  document.getElementById('agg-iu').textContent = agg && agg.iu != null ? agg.iu.toFixed(3) : '-';
+  document.getElementById('agg-gap').textContent = agg && agg.ts != null ? formatGap(agg.ts) : '-';
+  document.getElementById('agg-ndas').textContent = agg && agg.n != null ? agg.n.toLocaleString() : '-';
+  document.getElementById('agg-foot').textContent = agg
+    ? `Average claim-use similarity ${agg.cu != null ? agg.cu.toFixed(3) : 'N/A'} versus label-use similarity ${agg.iu != null ? agg.iu.toFixed(3) : 'N/A'} in ${agg.y}.`
+    : 'Temporal trends are interactive: click a year to sync the explorer below.';
+
+  if (!selectedDrug) {
+    document.getElementById('drug-snapshot-meta').textContent = 'Select a drug to inspect its active year slice.';
+    ['drug-cu', 'drug-iu', 'drug-gap', 'drug-active-ucs', 'drug-active-pats'].forEach(id => {
+      document.getElementById(id).textContent = '-';
+    });
+    document.getElementById('drug-foot').textContent = 'The year slider, play control, and filters stay in sync.';
+    return;
+  }
+
+  const row = getClosestTimelineEntry(selectedDrug, sliderYear);
+  const drug = DATA.drugs.find(d => d.nda === selectedDrug);
+  document.getElementById('drug-snapshot-meta').textContent = row
+    ? `${drug ? drug.name : selectedDrug} | year ${row.y}`
+    : `${drug ? drug.name : selectedDrug}`;
+  document.getElementById('drug-cu').textContent = row && row.cu != null ? row.cu.toFixed(3) : '-';
+  document.getElementById('drug-iu').textContent = row && row.iu != null ? row.iu.toFixed(3) : '-';
+  document.getElementById('drug-gap').textContent = row && row.ts != null ? formatGap(row.ts) : '-';
+  document.getElementById('drug-active-ucs').textContent = row && row.nuc != null ? row.nuc.toLocaleString() : '-';
+  document.getElementById('drug-active-pats').textContent = row && row.np != null ? row.np.toLocaleString() : '-';
+  document.getElementById('drug-foot').textContent = row
+    ? `Year ${row.y} has ${row.nuc ?? '-'} active use codes and ${row.np ?? '-'} patents in the observed Orange Book slice.`
+    : 'No timeline data available for this selection.';
+}
+
+function renderDirectory() {
+  if (!DATA || !DATA.drugs) return;
+  const q = (document.getElementById('dir-search')?.value || '').trim().toLowerCase();
+  const family = document.getElementById('dir-family')?.value || 'all';
+  const ingredientQ = (document.getElementById('dir-ingredient')?.value || '').trim().toLowerCase();
+  const gapSign = document.getElementById('dir-gap-sign')?.value || 'all';
+  const ucMin = document.getElementById('dir-usecodes')?.value || 'all';
+  const sort = document.getElementById('dir-sort')?.value || 'gap_desc';
+  const networkFilter = document.getElementById('dir-network')?.value || 'all';
+  const complexity = document.getElementById('dir-complexity')?.value || 'all';
+
+  let rows = DATA.drugs.filter(d => {
+    const text = `${d.name} ${d.nda} ${d.ingredient}`.toLowerCase();
+    const networkMeta = getNetworkMeta(d.nda);
+    if (q && !text.includes(q)) return false;
+    if (family !== 'all' && !tokenizeIngredient(d.ingredient).includes(family)) return false;
+    if (ingredientQ && !(d.ingredient || '').toLowerCase().includes(ingredientQ) && !(d.name || '').toLowerCase().includes(ingredientQ)) return false;
+    if (gapSign === 'positive' && !(d.trap_score != null && d.trap_score > 0)) return false;
+    if (gapSign === 'negative' && !(d.trap_score != null && d.trap_score < 0)) return false;
+    if (gapSign === 'missing' && d.trap_score != null) return false;
+    if (ucMin !== 'all' && (d.n_use_codes || 0) < parseInt(ucMin)) return false;
+    if (networkFilter === 'loaded' && !networkMeta.hasNetwork) return false;
+    if (networkFilter === 'missing' && networkMeta.hasNetwork) return false;
+    if (networkFilter === 'heavy' && !(networkMeta.edges != null && networkMeta.edges >= 1000)) return false;
+    if (complexity !== 'all' && networkMeta.sizeLabel !== complexity) return false;
+    return true;
+  });
+
+  const nullLow = v => v == null ? -Infinity : v;
+  const nullHigh = v => v == null ? Infinity : v;
+  rows.sort((a, b) => {
+    if (sort === 'gap_desc') return nullLow(b.trap_score) - nullLow(a.trap_score);
+    if (sort === 'gap_asc') return nullHigh(a.trap_score) - nullHigh(b.trap_score);
+    if (sort === 'edge_desc') return (getNetworkMeta(b.nda).edges || 0) - (getNetworkMeta(a.nda).edges || 0);
+    if (sort === 'uc_desc') return (b.n_use_codes || 0) - (a.n_use_codes || 0);
+    if (sort === 'name_asc') return (a.name || '').localeCompare(b.name || '');
+    if (sort === 'year_desc') return (b.ob_year || 0) - (a.ob_year || 0);
+    return 0;
+  });
+
+  const body = document.getElementById('directory-body');
+  const meta = document.getElementById('dir-meta');
+  if (!body || !meta) return;
+  meta.textContent = `${rows.length.toLocaleString()} of ${DATA.drugs.length.toLocaleString()} drugs shown`;
+  body.innerHTML = rows.map(d => `
+    <tr>
+      <td><strong>${d.name}</strong><br><span style="color:#8a96a3">NDA ${d.nda}</span></td>
+      <td>${d.ingredient || '-'}</td>
+      <td style="font-weight:700;color:${d.trap_score == null ? '#8a96a3' : d.trap_score >= 0 ? '#D55E00' : '#009E73'}">${formatGap(d.trap_score)}</td>
+      <td>${d.n_use_codes ?? '-'}</td>
+      <td>${d.claim_uc != null ? d.claim_uc.toFixed(3) : '-'}</td>
+      <td>${d.ind_uc != null ? d.ind_uc.toFixed(3) : '-'}</td>
+      <td>${d.ob_year ?? '-'}</td>
+      <td>${(() => {
+        const nm = getNetworkMeta(d.nda);
+        const cls = !nm.hasNetwork ? 'missing' : nm.edges >= 1000 ? 'warn' : 'good';
+        const label = !nm.hasNetwork ? 'Missing' : nm.edges >= 1000 ? 'Heavy' : 'Available';
+        return `<span class="network-badge ${cls}">${label}</span>`;
+      })()}</td>
+      <td>${(() => {
+        const nm = getNetworkMeta(d.nda);
+        return nm.edges != null ? nm.edges.toLocaleString() : '-';
+      })()}</td>
+      <td><button type="button" data-open-nda="${d.nda}">Open</button></td>
+    </tr>
+  `).join('');
+  body.querySelectorAll('button[data-open-nda]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setTab('explorer');
+      selectDrug(btn.dataset.openNda);
+      document.getElementById('drug-search').value = '';
+    });
+  });
 }
 
 // ======================================================================
@@ -335,7 +1039,7 @@ function init() {
     searchTimer = setTimeout(() => {
       const q = e.target.value.toLowerCase();
       currentFiltered = DATA.drugs.filter(d =>
-        d.name.toLowerCase().includes(q) || d.nda.includes(q) || d.ingredient.toLowerCase().includes(q)
+        d.name.toLowerCase().includes(q) || d.nda.includes(q) || (d.ingredient || '').toLowerCase().includes(q)
       );
       renderDrugList(currentFiltered, true);
     }, 150);
@@ -356,18 +1060,6 @@ function init() {
   document.getElementById('view-heatmap').addEventListener('click', () => setView('heatmap'));
   document.getElementById('view-sankey').addEventListener('click', () => setView('sankey'));
 
-  // UC filter
-  let ucFilterTimer = null;
-  document.getElementById('uc-filter').addEventListener('input', () => {
-    clearTimeout(ucFilterTimer);
-    ucFilterTimer = setTimeout(() => {
-      if (selectedDrug && currentView !== 'simple') {
-        const year = parseInt(document.getElementById('year-slider').value);
-        renderNetwork(selectedDrug, year);
-      }
-    }, 200);
-  });
-
   // Top-N per UC control
   document.getElementById('top-n-per-uc').addEventListener('change', () => {
     if (selectedDrug && currentView === 'gat') {
@@ -375,6 +1067,11 @@ function init() {
       renderNetwork(selectedDrug, year);
     }
   });
+
+  setupAdvancedFilters();
+  setupTabs();
+  setupDirectoryControls();
+  populateDirectoryFamilies();
 
   // Log network index availability
   console.log('Network index:', networkIndex ? Object.keys(networkIndex).length + ' NDAs available for lazy loading' : 'NOT LOADED');
@@ -387,10 +1084,25 @@ function init() {
 
   // Draw aggregate trend
   drawTrendChart();
+  updateSnapshotCards();
+  renderDirectory();
 
   // Select first drug
   if (DATA.drugs.length > 0) selectDrug(DATA.drugs[0].nda);
 }
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (!DATA) return;
+    drawTrendChart();
+    if (selectedDrug) {
+      drawDrugChart(selectedDrug);
+      renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value, 10));
+    }
+  }, 120);
+});
 
 // ======================================================================
 // View toggle
@@ -403,7 +1115,7 @@ function setView(view) {
   });
   const isAdvanced = view !== 'simple';
   document.getElementById('density-control').style.display = (view === 'gat') ? '' : 'none';
-  document.getElementById('uc-filter').style.display = isAdvanced ? '' : 'none';
+  document.getElementById('advanced-filters').style.display = isAdvanced ? '' : 'none';
 
   // Show/hide SVG vs heatmap canvas
   const usesCanvas = view === 'heatmap';
@@ -430,6 +1142,7 @@ function setView(view) {
 
   if (selectedDrug) {
     const year = parseInt(document.getElementById('year-slider').value);
+    refreshAdvancedFilterUI(selectedDrug, year, networkCache[selectedDrug] || null);
     renderNetwork(selectedDrug, year);
   }
 }
@@ -448,6 +1161,8 @@ function togglePlay() {
     if (!selectedDrug) return;
     const tl = DATA.timelines[selectedDrug];
     if (!tl || tl.length === 0) return;
+    const speed = document.getElementById('play-speed')?.value || 'normal';
+    const delay = PLAYBACK_MS[speed] || PLAYBACK_MS.normal;
 
     const years = tl.map(d => d.y);
     const slider = document.getElementById('year-slider');
@@ -455,9 +1170,7 @@ function togglePlay() {
     // Always start playback from the first year
     let idx = 0;
     const firstYr = years[0];
-    slider.value = firstYr;
-    document.getElementById('year-label').textContent = firstYr;
-    renderNetwork(selectedDrug, firstYr);
+    syncYear(firstYr);
 
     btn.innerHTML = '&#9724; Stop';
     btn.classList.add('playing');
@@ -468,11 +1181,8 @@ function togglePlay() {
         stopPlay();
         return;
       }
-      const yr = years[idx];
-      slider.value = yr;
-      document.getElementById('year-label').textContent = yr;
-      renderNetwork(selectedDrug, yr);
-    }, 1200);
+      syncYear(years[idx]);
+    }, delay);
   }
 }
 
@@ -504,9 +1214,10 @@ function renderDrugList(drugs, reset) {
     const ts = d.trap_score;
     const cls = ts != null && ts >= 0 ? 'positive' : ts != null ? 'negative' : '';
     const tsText = ts != null ? `${ts >= 0 ? '+' : ''}${ts.toFixed(3)}` : 'N/A';
+    const ingredientText = (d.ingredient || '-').substring(0, 30);
     div.innerHTML = `<strong>${d.name}</strong> <span style="color:#999">(${d.nda})</span><br>
       <span class="trap ${cls}">${tsText}</span>
-      &middot; ${d.n_use_codes} UCs &middot; ${d.ingredient.substring(0, 30)}`;
+      &middot; ${d.n_use_codes} UCs &middot; ${ingredientText}`;
     fragment.appendChild(div);
   }
 
@@ -540,7 +1251,7 @@ function selectDrug(nda) {
     el.classList.toggle('active', el.dataset.nda === nda);
   });
 
-  drawDrugChart(nda);
+  updateSelectedOverview(nda);
 
   // Set slider range to drug's actual years
   const tl = DATA.timelines[nda];
@@ -550,14 +1261,26 @@ function selectDrug(nda) {
     const lastYear = tl[tl.length - 1].y;
     slider.min = firstYear;
     slider.max = lastYear;
-    slider.value = lastYear;
-    document.getElementById('year-label').textContent = lastYear;
-    renderNetwork(nda, lastYear);
+    refreshAdvancedFilterUI(nda, lastYear, networkCache[nda] || null);
+    syncYear(lastYear);
   } else {
     slider.min = 1988;
     slider.max = 2024;
-    renderNetwork(nda, parseInt(slider.value));
+    refreshAdvancedFilterUI(nda, parseInt(slider.value), networkCache[nda] || null);
+    syncYear(parseInt(slider.value, 10));
   }
+}
+
+function syncYear(year) {
+  const slider = document.getElementById('year-slider');
+  slider.value = year;
+  document.getElementById('year-label').textContent = year;
+  drawTrendChart();
+  if (selectedDrug) {
+    drawDrugChart(selectedDrug);
+    renderNetwork(selectedDrug, parseInt(year, 10));
+  }
+  updateSnapshotCards();
 }
 
 // ======================================================================
@@ -630,8 +1353,47 @@ function drawTrendChart() {
     }
   });
 
+  const selectedYear = parseInt(document.getElementById('year-slider')?.value || '0', 10);
+  const selectedIdx = years.indexOf(selectedYear);
+  if (selectedIdx >= 0) {
+    const x = xScale(selectedIdx);
+    ctx.beginPath();
+    ctx.strokeStyle = '#1a365d';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.moveTo(x, pad.top);
+    ctx.lineTo(x, h - pad.bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   ctx.fillStyle = '#333'; ctx.font = '11px Arial'; ctx.textAlign = 'left';
   ctx.fillText('Cosine Similarity', pad.left, pad.top - 6);
+
+  canvas.onmousemove = e => {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left;
+    const idx = Math.max(0, Math.min(years.length - 1, Math.round((mx - pad.left) / ((w - pad.left - pad.right) / Math.max(1, years.length - 1)))));
+    const yr = DATA.yearly[idx];
+    if (!yr) return;
+    const tooltip = document.getElementById('tooltip');
+    tooltip.innerHTML = `<strong>${yr.y}</strong><div class="tt-label">Claim-UC</div><div>${(yr.cu ?? 0).toFixed(3)}</div><div class="tt-label">Indication-UC</div><div>${(yr.iu ?? 0).toFixed(3)}</div><div class="tt-label">Scope gap</div><div>${(yr.ts ?? 0).toFixed(3)}</div><div class="tt-label">NDAs</div><div>${yr.n ?? '-'}</div>`;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.pageX + 14) + 'px';
+    tooltip.style.top = (e.pageY - 14) + 'px';
+    document.getElementById('trend-note').textContent = `Year ${yr.y}: click to sync the selected drug's timeline`;
+  };
+  canvas.onclick = e => {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left;
+    const idx = Math.max(0, Math.min(years.length - 1, Math.round((mx - pad.left) / ((w - pad.left - pad.right) / Math.max(1, years.length - 1)))));
+    const yr = DATA.yearly[idx];
+    if (yr && selectedDrug) syncYear(yr.y);
+  };
+  canvas.onmouseleave = () => {
+    document.getElementById('tooltip').style.display = 'none';
+    document.getElementById('trend-note').textContent = 'Hover for year-level detail. Click a year to sync the network timeline.';
+  };
 }
 
 // ======================================================================
@@ -647,6 +1409,7 @@ function drawDrugChart(nda) {
   ctx.clearRect(0, 0, w, h);
 
   const tl = DATA.timelines[nda];
+  const drug = DATA.drugs.find(d => d.nda === nda);
   if (!tl || tl.length === 0) {
     ctx.fillStyle = '#999'; ctx.font = '13px Arial'; ctx.textAlign = 'center';
     ctx.fillText('No timeline data for this drug', w / 2, h / 2);
@@ -723,17 +1486,50 @@ function drawDrugChart(nda) {
   drawLine(cu, '#D55E00', false, yScale);
   drawLine(iu, '#009E73', false, yScale);
   drawLine(trap, '#CC79A7', true, tScale);
+
+  const currentYear = parseInt(document.getElementById('year-slider')?.value || '0', 10);
+  const currentIdx = years.indexOf(currentYear);
+  if (currentIdx >= 0) {
+    const x = xScale(currentIdx);
+    ctx.beginPath();
+    ctx.strokeStyle = '#1a365d';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.moveTo(x, pad2.top);
+    ctx.lineTo(x, h - pad2.bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  canvas.onmousemove = e => {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left;
+    const idx = Math.max(0, Math.min(years.length - 1, Math.round((mx - pad2.left) / ((w - pad2.left - pad2.right) / Math.max(1, years.length - 1)))));
+    const row = tl[idx];
+    if (!row) return;
+    const tooltip = document.getElementById('tooltip');
+    tooltip.innerHTML = `<strong>${drug ? drug.name : nda} | ${row.y}</strong><div class="tt-label">Claim-UC</div><div>${row.cu != null ? row.cu.toFixed(3) : 'N/A'}</div><div class="tt-label">Indication-UC</div><div>${row.iu != null ? row.iu.toFixed(3) : 'N/A'}</div><div class="tt-label">Scope gap</div><div>${row.ts != null ? row.ts.toFixed(3) : 'N/A'}</div><div class="tt-label">Use codes / patents</div><div>${row.nuc ?? '-'} / ${row.np ?? '-'}</div>`;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.pageX + 14) + 'px';
+    tooltip.style.top = (e.pageY - 14) + 'px';
+    document.getElementById('drug-note').textContent = `Year ${row.y}: ${row.nuc ?? '-'} use codes, ${row.np ?? '-'} patents`;
+  };
+  canvas.onclick = e => {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left;
+    const idx = Math.max(0, Math.min(years.length - 1, Math.round((mx - pad2.left) / ((w - pad2.left - pad2.right) / Math.max(1, years.length - 1)))));
+    const row = tl[idx];
+    if (row) syncYear(row.y);
+  };
+  canvas.onmouseleave = () => {
+    document.getElementById('tooltip').style.display = 'none';
+    document.getElementById('drug-note').textContent = 'Hover for year detail. Click a point to move the timeline and network there.';
+  };
 }
 
 // ======================================================================
 // Network rendering (dispatcher)
 // ======================================================================
-// Get active UC filter text
-function getUCFilter() {
-  const f = document.getElementById('uc-filter').value.trim().toUpperCase();
-  return f || null;
-}
-
 // Throttle: skip renders if called faster than interval
 let _renderTimer = null;
 function renderNetwork(nda, year) {
@@ -751,6 +1547,7 @@ async function _doRender(nda, year) {
 
   // Lazy-load network for this drug
   const net = await loadNetwork(nda);
+  refreshAdvancedFilterUI(nda, year, net);
 
   if (!net) {
     const svg = d3.select('#network-svg');
@@ -908,35 +1705,28 @@ function renderGATNetwork(nda, year, net, isHeavy) {
   }
 
   // Find closest year in timeline
-  let best = tl[0];
-  for (const entry of tl) { if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry; }
+  const yearCtx = getFilterContext(nda, year, net);
+  const best = yearCtx.best;
 
   // Get active use codes for this year
-  const activeUCs = new Set((best.ucs || []).map(u => u.c));
+  const activeUCs = yearCtx.activeUCs;
 
   // Build ind-UC lookup from timeline data
   const indUCmap = {};
   const claimUCmap = {};
   (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; claimUCmap[u.c] = u.cu; });
 
-  // Filter network to active use codes
-  const activeUCData = net.use_codes.filter(uc => activeUCs.has(uc.code));
-  if (activeUCData.length === 0) {
-    svg.attr('viewBox', `0 0 ${w} 520`);
-    svg.append('text').attr('x', w / 2).attr('y', 260).attr('text-anchor', 'middle')
-      .attr('fill', '#999').text(`No use codes active in ${best.y}`);
-    return;
-  }
-
   // Filter edges: active UCs, UC filter, then top-N per UC
   const topNInput = parseInt(document.getElementById('top-n-per-uc').value);
   const topN = isHeavy && isNaN(topNInput) ? DEFAULT_TOP_N : (topNInput || DEFAULT_TOP_N);
-  const ucFilter = getUCFilter();
-  let filteredEdges = net.edges.filter(e => {
-    if (!activeUCs.has(e.u)) return false;
-    if (ucFilter && !e.u.toUpperCase().includes(ucFilter)) return false;
-    return true;
-  });
+  let filteredEdges = applyAdvancedFilters(net, yearCtx);
+  if (filteredEdges.length === 0) {
+    svg.attr('viewBox', `0 0 ${w} 520`);
+    svg.append('text').attr('x', w / 2).attr('y', 260).attr('text-anchor', 'middle')
+      .attr('fill', '#999').text(`No claim-use edges remain after filters in ${best.y}`);
+    document.getElementById('filter-summary').textContent = 'Current filters remove all claim-use edges for this year';
+    return;
+  }
 
   // Apply top-N per UC
   const byUC = {};
@@ -957,6 +1747,8 @@ function renderGATNetwork(nda, year, net, isHeavy) {
 
   // Get claim IDs that appear in active edges
   const activeClaimIds = new Set(activeEdges.map(e => e.c));
+  const activeUCSet = new Set(activeEdges.map(e => e.u));
+  const activeUCData = net.use_codes.filter(uc => activeUCSet.has(uc.code));
 
   // Get patents with active claims, assign colors
   const patentColorMap = {};
@@ -1025,8 +1817,23 @@ function renderGATNetwork(nda, year, net, isHeavy) {
     links.push({
       source: e.c, target: `uc_${e.u}`,
       sim: e.s, iu: iu,
-      isGap: iu !== null ? (e.s > iu) : null,
+      isTrap: iu !== null ? (e.s > iu) : null,
     });
+  });
+
+  const connectedByNode = new Map();
+  const linksByNode = new Map();
+  links.forEach(l => {
+    const src = l.source;
+    const dst = l.target;
+    if (!connectedByNode.has(src)) connectedByNode.set(src, new Set());
+    if (!connectedByNode.has(dst)) connectedByNode.set(dst, new Set());
+    if (!linksByNode.has(src)) linksByNode.set(src, []);
+    if (!linksByNode.has(dst)) linksByNode.set(dst, []);
+    connectedByNode.get(src).add(dst);
+    connectedByNode.get(dst).add(src);
+    linksByNode.get(src).push(l);
+    linksByNode.get(dst).push(l);
   });
 
   // Force simulation (x fixed, y free)
@@ -1140,9 +1947,11 @@ function renderGATNetwork(nda, year, net, isHeavy) {
 
   // Node hover — highlight connected edges
   node.on('mouseover', function(e, d) {
+    const connectedLinks = new Set(linksByNode.get(d.id) || []);
+    const connectedNodes = connectedByNode.get(d.id) || new Set();
     // Highlight edges connected to this node
     link.each(function(ld) {
-      const connected = (ld.source.id || ld.source) === d.id || (ld.target.id || ld.target) === d.id;
+      const connected = connectedLinks.has(ld);
       d3.select(this)
         .attr('stroke-opacity', connected ? 0.85 : 0.04)
         .attr('stroke-width', connected ? 3.5 : Math.max(0.3, (ld.sim - 0.80) * 8));
@@ -1150,11 +1959,7 @@ function renderGATNetwork(nda, year, net, isHeavy) {
     // Dim unconnected nodes
     node.selectAll('circle').attr('opacity', function(nd) {
       if (nd.id === d.id) return 1;
-      const hasEdge = links.some(l =>
-        ((l.source.id || l.source) === d.id && (l.target.id || l.target) === nd.id) ||
-        ((l.target.id || l.target) === d.id && (l.source.id || l.source) === nd.id)
-      );
-      return hasEdge ? 1 : 0.15;
+      return connectedNodes.has(nd.id) ? 1 : 0.15;
     });
 
     // Tooltip
@@ -1213,6 +2018,8 @@ function renderGATNetwork(nda, year, net, isHeavy) {
   svg.append('text').attr('x', w - 12).attr('y', 56).attr('text-anchor', 'end')
     .attr('font-size', '11px').attr('fill', '#999')
     .text(`${activeEdges.length} edges | ${activePatents.length} patents`);
+  document.getElementById('filter-summary').textContent =
+    `${activePatents.length} patents | ${totalClaims} claims | ${activeUCData.length} UCs | ${activeEdges.length} edges${wasCapped ? ' | reduced for performance' : ''}`;
   if (wasCapped) {
     svg.append('text').attr('x', w - 12).attr('y', 72).attr('text-anchor', 'end')
       .attr('font-size', '10px').attr('fill', '#e0af68')
@@ -1285,25 +2092,27 @@ function renderSankey(nda, year, net, isHeavy) {
   const drugName = drug ? drug.name : nda;
   if (!net || !tl) return;
 
-  let best = tl[0];
-  for (const entry of tl) { if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry; }
-
-  const activeUCs = new Set((best.ucs || []).map(u => u.c));
+  const yearCtx = getFilterContext(nda, year, net);
+  const best = yearCtx.best;
+  const activeUCs = yearCtx.activeUCs;
   const indUCmap = {};
   (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
 
-  const ucFilter = getUCFilter();
-  let filteredEdges = net.edges.filter(e => {
-    if (!activeUCs.has(e.u)) return false;
-    if (ucFilter && !e.u.toUpperCase().includes(ucFilter)) return false;
-    return true;
-  });
+  let filteredEdges = applyAdvancedFilters(net, yearCtx);
+  if (filteredEdges.length === 0) {
+    svg.attr('viewBox', `0 0 ${w} 400`);
+    svg.append('text').attr('x', w/2).attr('y', 200).attr('text-anchor', 'middle').attr('fill', '#999')
+      .text(`No Sankey links remain after filters in ${best.y}`);
+    document.getElementById('filter-summary').textContent = 'Current filters remove all Sankey links for this year';
+    return;
+  }
 
   // Cap edges for Sankey SVG performance
   let sankeyCapped = false;
-  if (filteredEdges.length > MAX_EDGES_SANKEY) {
+  const sankeyCap = isHeavy ? Math.min(MAX_EDGES_SANKEY, 120) : MAX_EDGES_SANKEY;
+  if (filteredEdges.length > sankeyCap) {
     filteredEdges.sort((a, b) => b.s - a.s);
-    filteredEdges = filteredEdges.slice(0, MAX_EDGES_SANKEY);
+    filteredEdges = filteredEdges.slice(0, sankeyCap);
     sankeyCapped = true;
   }
 
@@ -1380,8 +2189,10 @@ function renderSankey(nda, year, net, isHeavy) {
   if (sankeyCapped) {
     svg.append('text').attr('x', w/2).attr('y', 38).attr('text-anchor', 'middle')
       .attr('font-size', '10px').attr('fill', '#e0af68')
-      .text(`Showing top ${MAX_EDGES_SANKEY} edges by similarity (reduced for performance)`);
+      .text(`Showing top ${sankeyCap} edges by similarity (reduced for performance)`);
   }
+  document.getElementById('filter-summary').textContent =
+    `${patents.length} patents | ${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} Sankey links${sankeyCapped ? ' | reduced for performance' : ''}`;
 
   // Draw flows: Patent → Claim
   const flowG = svg.append('g').attr('opacity', 0.3);
@@ -1489,26 +2300,34 @@ function renderHeatmap(nda, year, net) {
   if (!net || !tl) return;
 
   // Find closest year
-  let best = tl[0];
-  for (const entry of tl) { if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry; }
-
-  const activeUCs = new Set((best.ucs || []).map(u => u.c));
+  const yearCtx = getFilterContext(nda, year, net);
+  const best = yearCtx.best;
+  const activeUCs = yearCtx.activeUCs;
   const indUCmap = {};
   (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
 
   // Filter edges
-  const ucFilter = getUCFilter();
-  let filteredEdges = net.edges.filter(e => {
-    if (!activeUCs.has(e.u)) return false;
-
-    if (ucFilter && !e.u.toUpperCase().includes(ucFilter)) return false;
-    return true;
-  });
+  let filteredEdges = applyAdvancedFilters(net, yearCtx);
 
   // Get unique claims and UCs
   const claimIds = [...new Set(filteredEdges.map(e => e.c))];
   const ucCodes = [...new Set(filteredEdges.map(e => e.u))];
-  if (claimIds.length === 0 || ucCodes.length === 0) return;
+  if (claimIds.length === 0 || ucCodes.length === 0) {
+    const canvas = document.getElementById('heatmap-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 800;
+    canvas.height = 260;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#999';
+    ctx.font = '14px Segoe UI, Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`No heatmap cells remain after filters in ${best.y}`, canvas.width / 2, canvas.height / 2);
+    document.getElementById('filter-summary').textContent = 'Current filters remove all heatmap cells for this year';
+    document.getElementById('pat-legend').innerHTML = '';
+    return;
+  }
+  document.getElementById('filter-summary').textContent =
+    `${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} heatmap edges`;
 
   // Build similarity matrix
   const simMap = {};
