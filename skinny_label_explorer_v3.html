@@ -300,6 +300,10 @@
             <button class="hm-mode" data-mode="claim-uc">Claim-UC</button>
             <button class="hm-mode" data-mode="ind-uc">Ind-UC</button>
           </div>
+          <div id="heatmap-threshold" style="display:none;font-size:11px;white-space:nowrap;">
+            Network threshold: <input type="range" id="sparse-slider" min="0.80" max="0.98" step="0.01" value="0.88" style="width:80px;vertical-align:middle;">
+            <span id="sparse-label">0.88</span>
+          </div>
           <button id="view-sankey" title="Flow diagram: Patents → Claims → Use Codes">Sankey</button>
         </div>
         <label id="density-control" style="display:none; font-size:12px; white-space:nowrap;">
@@ -937,15 +941,24 @@ function setupAdvancedFilters() {
   });
 }
 
-function applyAdvancedFilters(net, yearCtx) {
+function getSparseThreshold() {
+  const el = document.getElementById('sparse-slider');
+  return el ? parseFloat(el.value) : 0.88;
+}
+
+function applyAdvancedFilters(net, yearCtx, forceAllEdges) {
   const selectedUCs = advancedFilters.useCodes.size > 0 ? advancedFilters.useCodes : yearCtx.activeUCs;
   const selectedPats = advancedFilters.patents;
+  const sparseThresh = forceAllEdges ? 0 : getSparseThreshold();
+
   return net.edges.filter(e => {
     if (!yearCtx.activeUCs.has(e.u)) return false;
     if (!selectedUCs.has(e.u)) return false;
+    // Apply sparse threshold for network/sankey (heatmap passes forceAllEdges=true)
+    if (sparseThresh > 0 && e.s < sparseThresh) return false;
     const ci = yearCtx.ciByClaim[e.c] || null;
-    if (advancedFilters.ciStatus === 'matched' && !(ci && !ci.orphan)) return false;
-    if (advancedFilters.ciStatus === 'orphan' && !(ci && ci.orphan)) return false;
+    if (advancedFilters.ciStatus === 'matched' && !(ci && ci.ci >= 0.88)) return false;
+    if (advancedFilters.ciStatus === 'orphan' && !(ci && ci.ci < 0.88)) return false;
     if (advancedFilters.ciStatus === 'high' && !(ci && ci.ci != null && ci.ci >= 0.92)) return false;
     const pat = yearCtx.claimToPat[e.c];
     if (selectedPats.size > 0 && !selectedPats.has(pat)) return false;
@@ -1204,6 +1217,14 @@ function init() {
   document.getElementById('view-heatmap').addEventListener('click', () => setView('heatmap'));
   document.getElementById('view-sankey').addEventListener('click', () => setView('sankey'));
 
+  // Sparse threshold slider (for network/sankey edge filtering)
+  document.getElementById('sparse-slider').addEventListener('input', e => {
+    document.getElementById('sparse-label').textContent = parseFloat(e.target.value).toFixed(2);
+    if (selectedDrug && (currentView === 'gat' || currentView === 'sankey')) {
+      renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+    }
+  });
+
   // Heatmap mode pills
   document.querySelectorAll('.hm-mode').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1285,6 +1306,7 @@ function setView(view) {
   document.querySelector('.network-container').style.display = usesCanvas ? 'none' : '';
   document.getElementById('heatmap-wrap').style.display = usesCanvas ? '' : 'none';
   document.getElementById('heatmap-mode-pills').style.display = usesCanvas ? '' : 'none';
+  document.getElementById('heatmap-threshold').style.display = (view === 'gat' || view === 'sankey') ? '' : 'none';
 
   // Update legend
   const legend = document.getElementById('net-legend');
@@ -2536,8 +2558,8 @@ function renderHeatmap(nda, year, net) {
   const indUCmap = {};
   (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
 
-  // Filter edges
-  let filteredEdges = applyAdvancedFilters(net, yearCtx);
+  // Filter edges — heatmap shows ALL edges (no sparse threshold)
+  let filteredEdges = applyAdvancedFilters(net, yearCtx, true);
 
   // Get unique claims and UCs
   const claimIds = [...new Set(filteredEdges.map(e => e.c))];
@@ -2821,23 +2843,31 @@ function updateOrphanPanel(nda, net) {
     panel.innerHTML = '<em>No claim-indication data available.</em>';
     return;
   }
-  const orphans = net.ci_claims.filter(c => c.orphan);
-  if (orphans.length === 0) {
-    panel.innerHTML = `<div style="color:#009E73;font-weight:600;">No orphan claims. All ${net.ci_claims.length} claims match at least one approved indication.</div>`;
-    return;
-  }
-  // Get claim text from patents
+  // Sort by CI ascending — lowest alignment first (most "orphan-like")
+  const sorted = [...net.ci_claims].sort((a, b) => a.ci - b.ci);
+  const lowCI = sorted.filter(c => c.ci < 0.88);
   const claimText = {};
   net.patents.forEach(p => p.claims.forEach(c => { claimText[c.id] = { text: c.text, patent: p.pat }; }));
 
-  panel.innerHTML = `<div style="color:#D55E00;font-weight:600;margin-bottom:8px;">${orphans.length} of ${net.ci_claims.length} claims (${(100 * orphans.length / net.ci_claims.length).toFixed(0)}%) don't match any approved indication:</div>` +
-    orphans.map(o => {
-      const info = claimText[o.c] || {};
-      return `<div style="margin-bottom:6px;padding:6px;background:#fef2f2;border-radius:4px;border-left:3px solid #D55E00;">
-        <div style="font-size:10px;color:#888;">Pat ${info.patent || '?'} | CI: ${o.ci.toFixed(3)}</div>
-        <div style="font-size:11px;color:#666;">${info.text || o.c}</div>
-      </div>`;
-    }).join('');
+  let html = '';
+  if (lowCI.length === 0) {
+    html = `<div style="color:#009E73;font-weight:600;">All ${net.ci_claims.length} claims have CI &ge; 0.88. No weak-alignment claims.</div>`;
+  } else {
+    html = `<div style="color:#D55E00;font-weight:600;margin-bottom:8px;">${lowCI.length} of ${net.ci_claims.length} claims have weak indication alignment (CI &lt; 0.88):</div>`;
+  }
+  // Show bottom 10 claims by CI (lowest first)
+  const toShow = sorted.slice(0, Math.min(10, sorted.length));
+  html += toShow.map(o => {
+    const info = claimText[o.c] || {};
+    const color = o.ci < 0.85 ? '#D55E00' : o.ci < 0.88 ? '#E69F00' : '#009E73';
+    const bg = o.ci < 0.88 ? '#fef2f2' : '#f0faf5';
+    return `<div style="margin-bottom:5px;padding:6px;background:${bg};border-radius:4px;border-left:3px solid ${color};">
+      <div style="font-size:10px;color:#888;">Pat ${info.patent || '?'} | CI: <strong style="color:${color}">${o.ci.toFixed(3)}</strong></div>
+      <div style="font-size:11px;color:#666;">${info.text || o.c}</div>
+    </div>`;
+  }).join('');
+  if (sorted.length > 10) html += `<div style="font-size:11px;color:#999;margin-top:4px;">Showing 10 of ${sorted.length} claims (sorted by lowest CI first)</div>`;
+  panel.innerHTML = html;
 }
 
 // ======================================================================
