@@ -154,7 +154,14 @@
   .methods-body h4 { color: var(--blue); margin: 12px 0 4px; font-size: 13px; }
   .methods-body code { background: #f0f2f5; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
   @media (max-width: 1100px) { .directory-controls, .detail-grid, .arch-grid, .info-grid { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 900px) { .main { grid-template-columns: 1fr; } .panels, .directory-controls, .detail-grid, .arch-grid, .info-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .panels, .directory-controls, .detail-grid, .arch-grid, .info-grid { grid-template-columns: 1fr; }
+    .view-toggle button:not(#view-simple) { display: none; }
+    #heatmap-mode-pills { display: none !important; }
+    .network-container { max-height: 400px; }
+    .heatmap-container { display: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -359,12 +366,24 @@
       </div>
     </div>
 
-    <div class="card">
-      <h3>Tools</h3>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="btn-export-csv" style="padding:6px 14px;font-size:12px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:white;">Export Drug Data (CSV)</button>
-        <button id="btn-export-png" style="padding:6px 14px;font-size:12px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:white;">Export Heatmap (PNG)</button>
-        <button id="btn-copy-link" style="padding:6px 14px;font-size:12px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:white;">Copy Shareable Link</button>
+    <div class="panels">
+      <div class="card">
+        <h3>Claim-Indication Distribution <span class="help-icon">?<span class="help-tip">Histogram of mean claim-indication similarity across all NDAs with CI data. Shows how well patent claims align with approved indications across the full drug landscape. The dashed line marks the 0.88 threshold — drugs below it have weak claim-label alignment.</span></span></h3>
+        <canvas id="ci-dist-chart" style="width:100%;height:200px;"></canvas>
+      </div>
+      <div class="card">
+        <h3>Tools</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <button id="btn-export-csv" style="padding:6px 14px;font-size:12px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:white;">Export Drug Data (CSV)</button>
+          <button id="btn-export-png" style="padding:6px 14px;font-size:12px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:white;">Export Heatmap (PNG)</button>
+          <button id="btn-copy-link" style="padding:6px 14px;font-size:12px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:white;">Copy Shareable Link</button>
+        </div>
+        <h3>Compare Drugs</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <input type="text" id="compare-input" placeholder="Type NDA or name to add..." style="flex:1;min-width:120px;padding:6px 10px;font-size:12px;border:1px solid #ccc;border-radius:6px;">
+          <button id="btn-compare" style="padding:6px 14px;font-size:12px;border:1px solid #ccc;border-radius:6px;cursor:pointer;background:white;">Add</button>
+        </div>
+        <div id="compare-table" style="margin-top:8px;font-size:12px;"></div>
       </div>
     </div>
 
@@ -1218,6 +1237,9 @@ function init() {
   updateSnapshotCards();
   renderDirectory();
 
+  // Draw CI distribution histogram
+  drawCIDistribution();
+
   // Load from URL or select first drug
   const urlNDA = new URLSearchParams(window.location.search).get('nda');
   if (urlNDA && DATA.drugs.some(d => d.nda === urlNDA)) {
@@ -1393,6 +1415,7 @@ function selectDrug(nda) {
   const cachedNet = networkCache[nda] || null;
   updateIndicationPanel(nda, cachedNet);
   updateOrphanPanel(nda, cachedNet);
+  drawCIDistribution(); // update selected drug marker
 
   // Set slider range to drug's actual years
   const tl = DATA.timelines[nda];
@@ -2882,6 +2905,118 @@ function loadFromURL() {
   if (nda) {
     setTimeout(() => selectDrug(nda), 100);
   }
+}
+
+// ======================================================================
+// CI Distribution histogram (#3)
+// ======================================================================
+function drawCIDistribution() {
+  const canvas = document.getElementById('ci-dist-chart');
+  if (!canvas || !CI_INDEX) return;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width - 32; canvas.height = 200;
+  const w = canvas.width, h = canvas.height;
+  const pad = { top: 15, right: 15, bottom: 30, left: 40 };
+
+  ctx.clearRect(0, 0, w, h);
+
+  const vals = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
+  if (vals.length === 0) return;
+
+  // Histogram bins from 0.82 to 1.0
+  const nBins = 18;
+  const binMin = 0.82, binMax = 1.0;
+  const binW = (binMax - binMin) / nBins;
+  const bins = new Array(nBins).fill(0);
+  vals.forEach(v => {
+    const bi = Math.min(nBins - 1, Math.max(0, Math.floor((v - binMin) / binW)));
+    bins[bi]++;
+  });
+  const maxCount = Math.max(...bins);
+
+  const xScale = i => pad.left + (i / nBins) * (w - pad.left - pad.right);
+  const yScale = v => pad.top + (1 - v / maxCount) * (h - pad.top - pad.bottom);
+  const barW = (w - pad.left - pad.right) / nBins - 1;
+
+  // Bars
+  bins.forEach((count, i) => {
+    const x = xScale(i);
+    const y = yScale(count);
+    const bh = h - pad.bottom - y;
+    ctx.fillStyle = (binMin + i * binW) < 0.88 ? '#D55E00' : '#0072B2';
+    ctx.fillRect(x, y, barW, bh);
+  });
+
+  // Threshold line at 0.88
+  const tx = xScale((0.88 - binMin) / binW);
+  ctx.beginPath(); ctx.strokeStyle = '#999'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.moveTo(tx, pad.top); ctx.lineTo(tx, h - pad.bottom); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#999'; ctx.font = '9px Arial'; ctx.textAlign = 'center';
+  ctx.fillText('0.88', tx, h - pad.bottom + 12);
+
+  // Selected drug marker
+  if (selectedDrug && CI_INDEX[selectedDrug]) {
+    const sv = CI_INDEX[selectedDrug].ci_mean;
+    const sx = xScale((sv - binMin) / binW);
+    ctx.beginPath(); ctx.strokeStyle = '#D55E00'; ctx.lineWidth = 2;
+    ctx.moveTo(sx, pad.top); ctx.lineTo(sx, h - pad.bottom); ctx.stroke();
+    ctx.fillStyle = '#D55E00'; ctx.font = 'bold 9px Arial';
+    ctx.fillText('Selected', sx, pad.top - 3);
+  }
+
+  // Axes
+  ctx.fillStyle = '#666'; ctx.font = '9px Arial'; ctx.textAlign = 'center';
+  for (let v = binMin; v <= binMax; v += 0.04) {
+    ctx.fillText(v.toFixed(2), xScale((v - binMin) / binW), h - pad.bottom + 12);
+  }
+  ctx.textAlign = 'right';
+  ctx.fillText(String(maxCount), pad.left - 4, pad.top + 8);
+  ctx.fillText('0', pad.left - 4, h - pad.bottom + 3);
+  ctx.font = '10px Arial'; ctx.textAlign = 'left';
+  ctx.fillText(`${vals.length} NDAs`, pad.left, pad.top - 3);
+}
+
+// ======================================================================
+// Batch comparison (#12)
+// ======================================================================
+const compareList = [];
+
+document.getElementById('btn-compare').addEventListener('click', () => {
+  const input = document.getElementById('compare-input');
+  const q = input.value.trim().toLowerCase();
+  if (!q) return;
+  const match = DATA.drugs.find(d =>
+    d.nda === q || d.name.toLowerCase().includes(q) || d.ingredient.toLowerCase().includes(q)
+  );
+  if (!match) { input.value = 'Not found'; return; }
+  if (compareList.some(c => c.nda === match.nda)) { input.value = ''; return; }
+  if (compareList.length >= 5) { input.value = 'Max 5'; return; }
+  compareList.push(match);
+  input.value = '';
+  renderCompareTable();
+});
+
+function renderCompareTable() {
+  const div = document.getElementById('compare-table');
+  if (compareList.length === 0) { div.innerHTML = ''; return; }
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr style="border-bottom:1px solid #ddd;">';
+  html += '<th style="text-align:left;padding:4px;">Drug</th><th>CI Mean</th><th>Orphan</th><th>Scope Gap</th><th>UCs</th><th></th>';
+  html += '</tr></thead><tbody>';
+  compareList.forEach((d, i) => {
+    const ci = CI_INDEX[d.nda] || {};
+    const ts = d.trap_score;
+    html += `<tr style="border-bottom:1px solid #f0f0f0;">
+      <td style="padding:4px;cursor:pointer;color:#0072B2;" onclick="selectDrug('${d.nda}')">${d.name}</td>
+      <td style="text-align:center;">${ci.ci_mean != null ? ci.ci_mean.toFixed(3) : '-'}</td>
+      <td style="text-align:center;">${ci.orphan_rate != null ? (ci.orphan_rate * 100).toFixed(0) + '%' : '-'}</td>
+      <td style="text-align:center;">${ts != null ? (ts >= 0 ? '+' : '') + ts.toFixed(3) : '-'}</td>
+      <td style="text-align:center;">${d.n_use_codes || '-'}</td>
+      <td style="text-align:center;cursor:pointer;color:#D55E00;" onclick="compareList.splice(${i},1);renderCompareTable();">x</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  div.innerHTML = html;
 }
 
 document.getElementById('btn-copy-link').addEventListener('click', () => {
