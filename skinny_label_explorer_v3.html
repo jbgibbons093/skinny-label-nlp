@@ -280,6 +280,12 @@
           <button id="view-simple" class="active" title="Simple star graph">Simple</button>
           <button id="view-gat" title="Claim-level bipartite graph">Network</button>
           <button id="view-heatmap" title="Claim-UC similarity matrix">Heatmap</button>
+          <select id="heatmap-mode" style="display:none; font-size:11px; padding:4px; border:1px solid #ccc; border-radius:4px;">
+            <option value="gap">Scope Gap (Claim-UC minus Ind-UC)</option>
+            <option value="claim-uc">Claim-UC Similarity</option>
+            <option value="ind-uc">Indication-UC Similarity</option>
+            <option value="claim-ind">Claim-Indication Similarity</option>
+          </select>
           <button id="view-sankey" title="Flow diagram: Patents → Claims → Use Codes">Sankey</button>
         </div>
         <label id="density-control" style="display:none; font-size:12px; white-space:nowrap;">
@@ -1145,6 +1151,13 @@ function init() {
   document.getElementById('view-heatmap').addEventListener('click', () => setView('heatmap'));
   document.getElementById('view-sankey').addEventListener('click', () => setView('sankey'));
 
+  // Heatmap mode selector
+  document.getElementById('heatmap-mode').addEventListener('change', () => {
+    if (selectedDrug && currentView === 'heatmap') {
+      renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+    }
+  });
+
   // Top-N per UC control
   document.getElementById('top-n-per-uc').addEventListener('change', () => {
     if (selectedDrug && currentView === 'gat') {
@@ -1202,10 +1215,11 @@ function setView(view) {
   document.getElementById('density-control').style.display = (view === 'gat') ? '' : 'none';
   document.getElementById('advanced-filters').style.display = isAdvanced ? '' : 'none';
 
-  // Show/hide SVG vs heatmap canvas
+  // Show/hide SVG vs heatmap canvas + heatmap mode selector
   const usesCanvas = view === 'heatmap';
   document.querySelector('.network-container').style.display = usesCanvas ? 'none' : '';
   document.getElementById('heatmap-wrap').style.display = usesCanvas ? '' : 'none';
+  document.getElementById('heatmap-mode').style.display = usesCanvas ? '' : 'none';
 
   // Update legend
   const legend = document.getElementById('net-legend');
@@ -2480,11 +2494,11 @@ function renderHeatmap(nda, year, net) {
   const canvas = document.getElementById('heatmap-canvas');
   const ctx = canvas.getContext('2d');
 
-  const cellW = Math.max(16, Math.min(40, 600 / ucCodes.length));
+  const cellW = Math.max(16, Math.min(40, 600 / colCount));
   const cellH = Math.max(8, Math.min(20, 500 / claimIds.length));
   const labelLeft = 100;
   const labelTop = 80;
-  const w = labelLeft + ucCodes.length * cellW + 60;
+  const w = labelLeft + colCount * cellW + 60;
   const h = labelTop + claimIds.length * cellH + 20;
 
   canvas.width = w;
@@ -2492,35 +2506,71 @@ function renderHeatmap(nda, year, net) {
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
 
+  const heatmapMode = document.getElementById('heatmap-mode').value || 'gap';
+  const isClaimInd = heatmapMode === 'claim-ind';
+
+  // For claim-indication mode, swap columns from UCs to indications
+  let colLabels, colCount;
+  if (isClaimInd) {
+    const indications = net.indications || [];
+    colLabels = indications.map(ind => ind.date || ind.id);
+    colCount = colLabels.length;
+  } else {
+    colLabels = ucCodes;
+    colCount = ucCodes.length;
+  }
+  if (colCount === 0) {
+    const canvas2 = document.getElementById('heatmap-canvas');
+    const ctx2 = canvas2.getContext('2d');
+    canvas2.width = 400; canvas2.height = 100;
+    ctx2.fillStyle = '#999'; ctx2.font = '13px Arial'; ctx2.textAlign = 'center';
+    ctx2.fillText(isClaimInd ? 'No indication data for this drug' : 'No data', 200, 50);
+    return;
+  }
+
+  // Build CI edge map for claim-indication mode
+  const ciEdgeMap = {};
+  if (isClaimInd && net.ci_edges) {
+    net.ci_edges.forEach(e => { ciEdgeMap[e.c + '|' + e.i] = e.s; });
+  }
+
+  const modeTitles = {
+    gap: 'Scope Gap (Claim-UC minus Ind-UC)',
+    'claim-uc': 'Claim-UC Similarity',
+    'ind-uc': 'Indication-UC Similarity',
+    'claim-ind': 'Claim-Indication Similarity',
+  };
+
   // Title
   ctx.fillStyle = '#1a365d';
   ctx.font = 'bold 14px Segoe UI, Arial';
   ctx.textAlign = 'left';
-  ctx.fillText(`${drugName} — ${best.y} | CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | ${claimIds.length} claims x ${ucCodes.length} UCs`, 8, 16);
+  ctx.fillText(`${drugName} — ${best.y} | ${modeTitles[heatmapMode]} | ${claimIds.length} claims x ${colCount} ${isClaimInd ? 'indications' : 'UCs'}`, 8, 16);
 
-  // Diverging color: scope gap = claim_sim - ind_sim
-  // Red = positive (claim exceeds label), Green = negative (label covers), White = zero
+  // Color functions
   function gapColor(gap) {
     if (gap == null) return '#f0f0f0';
     const maxGap = 0.06;
     const t = Math.max(-1, Math.min(1, gap / maxGap));
-    if (t > 0) {
-      return `rgb(255,${Math.round(245 - t * 200)},${Math.round(245 - t * 220)})`;
-    } else {
-      return `rgb(${Math.round(245 + t * 220)},255,${Math.round(245 + t * 200)})`;
-    }
+    if (t > 0) return `rgb(255,${Math.round(245 - t * 200)},${Math.round(245 - t * 220)})`;
+    return `rgb(${Math.round(245 + t * 220)},255,${Math.round(245 + t * 200)})`;
+  }
+  function simColor(s) {
+    if (s == null) return '#f0f0f0';
+    const t = Math.max(0, Math.min(1, (s - 0.82) / 0.18));
+    return `rgb(${Math.round(240 - t * 195)},${Math.round(245 - t * 130)},255)`;
   }
 
-  // UC labels (top)
+  // Column labels (top)
   ctx.save();
   ctx.font = `${Math.min(10, cellW - 2)}px Arial`;
   ctx.fillStyle = '#555';
   ctx.textAlign = 'left';
-  ucCodes.forEach((uc, j) => {
+  colLabels.forEach((label, j) => {
     ctx.save();
     ctx.translate(labelLeft + j * cellW + cellW / 2, labelTop - 4);
     ctx.rotate(-Math.PI / 3);
-    ctx.fillText(uc, 0, 0);
+    ctx.fillText(label, 0, 0);
     ctx.restore();
   });
   ctx.restore();
@@ -2537,44 +2587,68 @@ function renderHeatmap(nda, year, net) {
     const shortLabel = meta.patent || '';
     ctx.fillText(shortLabel, labelLeft - 4, y + cellH - 2);
 
-    // Cells — colored by scope gap (claim_sim - ind_sim)
-    ucCodes.forEach((uc, j) => {
+    // Cells — colored by selected mode
+    colLabels.forEach((col, j) => {
       const x = labelLeft + j * cellW;
-      const edgeKey = cid + '|' + uc;
-      const sim = simMap[edgeKey] || null;
-      // Use pre-computed edge-level scope gap if available
-      const gap = gapMap[edgeKey] ?? ((sim != null && (indUCmap[uc] ?? null) != null) ? sim - indUCmap[uc] : null);
-      ctx.fillStyle = gapColor(gap);
+      let cellVal = null;
+      let cellColor = '#f0f0f0';
+
+      if (isClaimInd) {
+        // Claim-Indication mode: lookup from ci_edges
+        const indId = net.indications[j].id;
+        cellVal = ciEdgeMap[cid + '|' + indId] ?? null;
+        cellColor = simColor(cellVal);
+      } else if (heatmapMode === 'gap') {
+        const edgeKey = cid + '|' + col;
+        const sim = simMap[edgeKey] || null;
+        cellVal = gapMap[edgeKey] ?? ((sim != null && indUCmap[col] != null) ? sim - indUCmap[col] : null);
+        cellColor = gapColor(cellVal);
+      } else if (heatmapMode === 'claim-uc') {
+        cellVal = simMap[cid + '|' + col] || null;
+        cellColor = simColor(cellVal);
+      } else if (heatmapMode === 'ind-uc') {
+        cellVal = indUCmap[col] ?? null;
+        cellColor = simColor(cellVal);
+      }
+
+      ctx.fillStyle = cellColor;
       ctx.fillRect(x, y, cellW - 1, cellH - 1);
 
-      // Outline for large positive gap
-      if (gap != null && gap > 0.03) {
-        ctx.strokeStyle = '#D55E00';
-        ctx.lineWidth = 1;
+      // Outline for notable values
+      if (heatmapMode === 'gap' && cellVal != null && cellVal > 0.03) {
+        ctx.strokeStyle = '#D55E00'; ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, cellW - 1, cellH - 1);
+      } else if (heatmapMode !== 'gap' && cellVal != null && cellVal >= 0.95) {
+        ctx.strokeStyle = '#0072B2'; ctx.lineWidth = 1;
         ctx.strokeRect(x, y, cellW - 1, cellH - 1);
       }
     });
   });
 
-  // Diverging color legend
-  const legX = labelLeft + ucCodes.length * cellW + 10;
+  // Color legend
+  const legX = labelLeft + colCount * cellW + 10;
   const legH = Math.min(150, h - labelTop - 20);
-  for (let i = 0; i < legH; i++) {
-    const gv = 0.06 - (i / legH) * 0.12; // +0.06 to -0.06
-    ctx.fillStyle = gapColor(gv);
-    ctx.fillRect(legX, labelTop + i, 12, 1);
-  }
   ctx.font = '9px Arial';
-  ctx.fillStyle = '#666';
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#D55E00';
-  ctx.fillText('+0.06', legX + 16, labelTop + 8);
-  ctx.fillStyle = '#666';
-  ctx.fillText('0', legX + 16, labelTop + legH / 2 + 3);
-  ctx.fillStyle = '#009E73';
-  ctx.fillText('-0.06', legX + 16, labelTop + legH);
-  ctx.fillStyle = '#666';
-  ctx.fillText('gap', legX + 2, labelTop - 4);
+
+  if (heatmapMode === 'gap') {
+    for (let i = 0; i < legH; i++) {
+      ctx.fillStyle = gapColor(0.06 - (i / legH) * 0.12);
+      ctx.fillRect(legX, labelTop + i, 12, 1);
+    }
+    ctx.fillStyle = '#D55E00'; ctx.fillText('+0.06', legX + 16, labelTop + 8);
+    ctx.fillStyle = '#666'; ctx.fillText('0', legX + 16, labelTop + legH / 2 + 3);
+    ctx.fillStyle = '#009E73'; ctx.fillText('-0.06', legX + 16, labelTop + legH);
+    ctx.fillStyle = '#666'; ctx.fillText('gap', legX + 2, labelTop - 4);
+  } else {
+    for (let i = 0; i < legH; i++) {
+      ctx.fillStyle = simColor(1.0 - (i / legH) * 0.18);
+      ctx.fillRect(legX, labelTop + i, 12, 1);
+    }
+    ctx.fillStyle = '#333'; ctx.fillText('1.0', legX + 16, labelTop + 8);
+    ctx.fillStyle = '#666'; ctx.fillText('0.82', legX + 16, labelTop + legH);
+    ctx.fillStyle = '#666'; ctx.fillText('sim', legX + 2, labelTop - 4);
+  }
 
   // Tooltip on hover
   const tooltip = document.getElementById('tooltip');
