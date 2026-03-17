@@ -1826,15 +1826,21 @@ function drawDrugChart(nda) {
 // ======================================================================
 // Network rendering (dispatcher)
 // ======================================================================
-// Throttle: skip renders if called faster than interval
+// Throttle + cancel stale renders
 let _renderTimer = null;
+let _renderGeneration = 0;  // increments on each render call, stale renders check this
+
 function renderNetwork(nda, year) {
   if (_renderTimer) clearTimeout(_renderTimer);
-  _renderTimer = setTimeout(() => _doRender(nda, year), currentView === 'simple' ? 0 : 50);
+  _renderGeneration++;
+  const gen = _renderGeneration;
+  _renderTimer = setTimeout(() => _doRender(nda, year, gen), currentView === 'simple' ? 0 : 50);
 }
 
-async function _doRender(nda, year) {
+async function _doRender(nda, year, gen) {
   if (currentSim) { currentSim.stop(); currentSim = null; }
+  // If another render was requested since this one started, bail out
+  if (gen !== _renderGeneration) return;
 
   if (currentView === 'simple') {
     renderSimpleNetwork(nda, year);
@@ -1843,6 +1849,7 @@ async function _doRender(nda, year) {
 
   // Lazy-load network for this drug
   const net = await loadNetwork(nda);
+  if (gen !== _renderGeneration) return; // stale — user switched views during load
   refreshAdvancedFilterUI(nda, year, net);
 
   if (!net) {
