@@ -256,13 +256,24 @@ const PAT_COLORS = [
 // ======================================================================
 // Load data
 // ======================================================================
-fetch('site_data_gat.json').then(r => r.json()).then(data => {
+document.querySelector('.content').insertAdjacentHTML('afterbegin',
+  '<div class="card" id="loading-msg"><p style="text-align:center;color:#999;padding:20px">Loading data (97 MB)...</p></div>');
+
+fetch('site_data_gat.json').then(r => {
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}).then(data => {
   DATA = data;
+  console.log('Loaded site_data_gat.json, networks:', Object.keys(data.networks || {}).length);
+  const el = document.getElementById('loading-msg');
+  if (el) el.remove();
   init();
 }).catch(e => {
-  // Fallback to original
+  console.warn('GAT load failed:', e.message, '- falling back to site_data.json');
   fetch('site_data.json').then(r => r.json()).then(data => {
     DATA = data;
+    const el = document.getElementById('loading-msg');
+    if (el) el.remove();
     init();
   }).catch(e2 => {
     document.querySelector('.content').innerHTML =
@@ -334,11 +345,13 @@ function init() {
     }
   });
 
-  // Disable advanced views if no network data
-  if (!DATA.networks) {
+  // Log network data availability
+  const hasNetworks = DATA.networks && Object.keys(DATA.networks).length > 0;
+  console.log('Network data:', hasNetworks ? Object.keys(DATA.networks).length + ' NDAs' : 'NOT AVAILABLE');
+  if (!hasNetworks) {
     ['view-gat', 'view-heatmap', 'view-sankey'].forEach(id => {
       const btn = document.getElementById(id);
-      if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
+      if (btn) btn.title += ' (data not loaded — try refreshing)';
     });
   }
 
