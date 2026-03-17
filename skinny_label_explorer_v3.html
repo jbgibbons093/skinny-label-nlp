@@ -58,8 +58,8 @@
   #trend-chart { width: 100%; height: 260px; }
   #drug-chart { width: 100%; height: 260px; }
   .chart-note { font-size: 11px; color: #7a8794; margin-top: 8px; }
-  .network-container { max-height: 600px; overflow-y: auto; overflow-x: hidden; border-radius: 6px; }
-  #network-svg { width: 100%; min-height: 400px; background: #fafbfc; border-radius: 6px; }
+  .network-container { max-height: 800px; overflow-y: auto; overflow-x: hidden; border-radius: 6px; }
+  #network-svg { width: 100%; min-height: 500px; background: #fafbfc; border-radius: 6px; }
   .network-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .year-slider { display: flex; align-items: center; gap: 8px; flex: 1; }
   .year-slider input[type="range"] { flex: 1; min-width: 150px; }
@@ -145,7 +145,7 @@
     z-index: 200; text-transform: none; letter-spacing: 0; pointer-events: none; }
   /* Heatmap */
   #heatmap-canvas { width: 100%; border-radius: 6px; cursor: crosshair; }
-  .heatmap-container { max-height: 600px; overflow: auto; }
+  .heatmap-container { max-height: 900px; overflow: auto; }
   /* Methods section */
   .methods-toggle { cursor: pointer; color: var(--blue); font-weight: 600; font-size: 13px; user-select: none; }
   .methods-toggle:hover { text-decoration: underline; }
@@ -241,12 +241,13 @@
     <div class="tab-panel active" id="panel-explorer">
     <div class="card">
       <h3>Selected Drug Overview</h3>
-      <div class="detail-grid">
+      <div class="detail-grid" style="grid-template-columns:repeat(6,1fr);">
         <div class="detail-stat"><div class="label">Drug</div><div class="value" id="d-name">Select a drug</div><div class="sub" id="d-ingredient">-</div></div>
         <div class="detail-stat"><div class="label">Claim-Indication</div><div class="value" id="d-ci">-</div><div class="sub" id="d-ci-sub">-</div></div>
-        <div class="detail-stat"><div class="label">Scope Gap (Secondary)</div><div class="value" id="d-gap">-</div><div class="sub" id="d-gap-sub">Claim-UC minus Ind-UC</div></div>
-        <div class="detail-stat"><div class="label">Use Codes</div><div class="value" id="d-ucs">-</div><div class="sub" id="d-claims">-</div></div>
-        <div class="detail-stat"><div class="label">Orphan Claims</div><div class="value" id="d-orphan">-</div><div class="sub" id="d-orphan-sub">Claims not matching any indication</div></div>
+        <div class="detail-stat"><div class="label">Claim-UC</div><div class="value" id="d-cu">-</div><div class="sub">Latest year</div></div>
+        <div class="detail-stat"><div class="label">Ind-UC</div><div class="value" id="d-iu">-</div><div class="sub">Latest year</div></div>
+        <div class="detail-stat"><div class="label">Scope Gap</div><div class="value" id="d-gap">-</div><div class="sub" id="d-gap-sub">Claim-UC minus Ind-UC</div></div>
+        <div class="detail-stat"><div class="label">Use Codes / Claims</div><div class="value" id="d-ucs">-</div><div class="sub" id="d-claims">-</div></div>
       </div>
     </div>
     <div class="card">
@@ -257,20 +258,6 @@
       <div class="chart-note" id="drug-note">Hover for year detail. Click a point to move the timeline and network there.</div>
     </div>
 
-    <div class="card">
-      <h3>Drug-Year Snapshot</h3>
-      <div class="snapshot-meta" id="drug-snapshot-meta">Select a drug to inspect its active year slice.</div>
-      <div class="snapshot-row">
-        <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="drug-ci">-</span></div>
-        <div class="snapshot-pill"><span class="label">Orphan Claims</span><span class="value" id="drug-orphan">-</span></div>
-        <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="drug-cu">-</span></div>
-        <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="drug-iu">-</span></div>
-        <div class="snapshot-pill"><span class="label">Scope Gap</span><span class="value" id="drug-gap">-</span></div>
-        <div class="snapshot-pill"><span class="label">Use Codes</span><span class="value" id="drug-active-ucs">-</span></div>
-        <div class="snapshot-pill"><span class="label">Patents</span><span class="value" id="drug-active-pats">-</span></div>
-      </div>
-      <div class="snapshot-foot" id="drug-foot">The year slider, play control, and filters stay in sync.</div>
-    </div>
 
     <div class="card" style="position:relative">
       <h3>Claim / Indication / Use Code Explorer: <span id="net-title">-</span>
@@ -294,12 +281,12 @@
           <button id="view-simple" class="active" title="Simple star graph">Simple</button>
           <button id="view-gat" title="Claim-level bipartite graph">Network</button>
           <button id="view-heatmap" title="Claim-UC similarity matrix">Heatmap</button>
-          <div id="heatmap-mode-pills" class="view-toggle" style="display:none;">
-            <button class="hm-mode active" data-mode="claim-ind">Claim-Ind</button>
-            <button class="hm-mode" data-mode="gap">Scope Gap</button>
-            <button class="hm-mode" data-mode="claim-uc">Claim-UC</button>
-            <button class="hm-mode" data-mode="ind-uc">Ind-UC</button>
-          </div>
+          <select id="heatmap-mode-select" style="display:none;font-size:12px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;">
+            <option value="claim-ind">Claim-Indication</option>
+            <option value="gap">Scope Gap (Claim-UC minus Ind-UC)</option>
+            <option value="claim-uc">Claim-UC Similarity</option>
+            <option value="ind-uc">Indication-UC Similarity</option>
+          </select>
           <div id="heatmap-threshold" style="display:none;font-size:11px;white-space:nowrap;">
             Network threshold: <input type="range" id="sparse-slider" min="0.80" max="0.98" step="0.01" value="0.88" style="width:80px;vertical-align:middle;">
             <span id="sparse-label">0.88</span>
@@ -311,11 +298,6 @@
         </label>
       </div>
       <div class="filter-bar" id="advanced-filters" style="display:none;">
-        <label class="filter-field">Claims
-          <select id="claim-kind-filter">
-            <option value="all">All (independent only)</option>
-          </select>
-        </label>
         <label class="filter-field">Claim-Indication
           <select id="ci-status-filter">
             <option value="all">All claims</option>
@@ -1026,16 +1008,16 @@ function updateSelectedOverview(nda) {
   document.getElementById('d-ingredient').textContent = drug.ingredient || '-';
   document.getElementById('d-ci').textContent = ciMean != null ? ciMean.toFixed(3) : '-';
   document.getElementById('d-ci-sub').textContent = ciMean != null
-    ? (ciMean >= 0.92 ? 'Strong claim-label alignment' : ciMean >= 0.88 ? 'Moderate alignment' : 'Weak alignment')
-    : 'Claim-indication loads from CI index / network cache';
+    ? (ciMean >= 0.92 ? 'Strong alignment' : ciMean >= 0.88 ? 'Moderate' : 'Weak')
+    : '-';
+  const el_cu = document.getElementById('d-cu');
+  const el_iu = document.getElementById('d-iu');
+  if (el_cu) el_cu.textContent = drug.claim_uc != null ? drug.claim_uc.toFixed(3) : '-';
+  if (el_iu) el_iu.textContent = drug.ind_uc != null ? drug.ind_uc.toFixed(3) : '-';
   document.getElementById('d-gap').textContent = formatGap(drug.trap_score);
-  document.getElementById('d-gap-sub').textContent = `Latest year ${drug.ob_year ?? 'N/A'} | secondary measure`;
-  document.getElementById('d-ucs').textContent = drug.n_use_codes != null ? String(drug.n_use_codes) : '-';
-  document.getElementById('d-claims').textContent = totalClaims != null ? `${totalClaims.toLocaleString()} claims` : 'Loads on demand';
-  document.getElementById('d-orphan').textContent = orphanRate != null ? `${(orphanRate * 100).toFixed(0)}%` : '-';
-  document.getElementById('d-orphan-sub').textContent = orphanRate != null
-    ? (orphanRate === 0 ? 'All claims match an indication' : `${Math.round(orphanRate * (totalClaims || 0))} claims with no indication match`)
-    : 'Claims not matching any indication';
+  document.getElementById('d-gap-sub').textContent = `Latest year ${drug.ob_year ?? 'N/A'}`;
+  document.getElementById('d-ucs').textContent = drug.n_use_codes != null ? `${drug.n_use_codes} UCs` : '-';
+  document.getElementById('d-claims').textContent = totalClaims != null ? `${totalClaims} claims` : '-';
 }
 
 function updateSnapshotCards() {
@@ -1225,15 +1207,11 @@ function init() {
     }
   });
 
-  // Heatmap mode pills
-  document.querySelectorAll('.hm-mode').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.hm-mode').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      if (selectedDrug && currentView === 'heatmap') {
-        renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
-      }
-    });
+  // Heatmap mode dropdown
+  document.getElementById('heatmap-mode-select').addEventListener('change', () => {
+    if (selectedDrug && currentView === 'heatmap') {
+      renderNetwork(selectedDrug, parseInt(document.getElementById('year-slider').value));
+    }
   });
 
   // Top-N per UC control
@@ -1305,7 +1283,7 @@ function setView(view) {
   const usesCanvas = view === 'heatmap';
   document.querySelector('.network-container').style.display = usesCanvas ? 'none' : '';
   document.getElementById('heatmap-wrap').style.display = usesCanvas ? '' : 'none';
-  document.getElementById('heatmap-mode-pills').style.display = usesCanvas ? '' : 'none';
+  document.getElementById('heatmap-mode-select').style.display = usesCanvas ? '' : 'none';
   document.getElementById('heatmap-threshold').style.display = (view === 'gat' || view === 'sankey') ? '' : 'none';
 
   // Update legend
@@ -2548,23 +2526,30 @@ function renderHeatmap(nda, year, net) {
   const drug = DATA.drugs.find(d => d.nda === nda);
   const drugName = drug ? drug.name : nda;
 
-  if (!net || !tl) return;
+  if (!net) return;
+
+  const heatmapMode = document.getElementById('heatmap-mode-select').value || 'claim-ind';
+  const isClaimInd = heatmapMode === 'claim-ind';
 
   // Find closest year
-  const yearCtx = getFilterContext(nda, year, net);
-  const best = yearCtx.best;
+  const yearCtx = tl ? getFilterContext(nda, year, net) : null;
+  const best = yearCtx ? yearCtx.best : null;
   const ciMaps = buildClaimIndicationMaps(net);
   const ciStats = getCIStats(nda, net);
   const indUCmap = {};
-  (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
+  if (best) (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
 
   // Filter edges — heatmap shows ALL edges (no sparse threshold)
-  let filteredEdges = applyAdvancedFilters(net, yearCtx, true);
+  let filteredEdges = yearCtx ? applyAdvancedFilters(net, yearCtx, true) : net.edges;
 
   // Get unique claims and UCs
-  const claimIds = [...new Set(filteredEdges.map(e => e.c))];
-  const ucCodes = [...new Set(filteredEdges.map(e => e.u))];
-  if (claimIds.length === 0 || ucCodes.length === 0) {
+  const claimIds = isClaimInd
+    ? [...new Set((net.ci_claims || []).map(c => c.c))]
+    : [...new Set(filteredEdges.map(e => e.c))];
+  const ucCodes = isClaimInd
+    ? []
+    : [...new Set(filteredEdges.map(e => e.u))];
+  if (claimIds.length === 0 || (!isClaimInd && ucCodes.length === 0)) {
     const canvas = document.getElementById('heatmap-canvas');
     const ctx = canvas.getContext('2d');
     canvas.width = 800;
@@ -2624,10 +2609,6 @@ function renderHeatmap(nda, year, net) {
   canvas.height = h;
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
-
-  const activeHmBtn = document.querySelector('.hm-mode.active');
-  const heatmapMode = activeHmBtn ? activeHmBtn.dataset.mode : 'claim-ind';
-  const isClaimInd = heatmapMode === 'claim-ind';
 
   // For claim-indication mode, swap columns from UCs to indications
   let colLabels, colCount;
@@ -2827,7 +2808,8 @@ function updateIndicationPanel(nda, net) {
     panel.innerHTML = '<em>No indication text available for this drug.</em>';
     return;
   }
-  panel.innerHTML = net.indications.map((ind, i) => {
+  const sortedInds = [...net.indications].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  panel.innerHTML = sortedInds.map((ind, i) => {
     const date = ind.date || 'Unknown';
     const yr = date.length >= 4 ? date.substring(0, 4) : date;
     return `<div style="margin-bottom:10px;padding:8px;background:#f8f9fb;border-radius:6px;border-left:3px solid #0072B2;">
