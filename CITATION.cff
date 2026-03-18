@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software or data, please cite the associated paper."
+title: "Skinny Label Patent Claim Explorer"
+type: software
+authors:
+  - given-names: S. Sean
+    family-names: Tu
+    orcid: ""
+    affiliation: "West Virginia University College of Law"
+  - given-names: Jason
+    family-names: Gibbons
+    orcid: ""
+    affiliation: "Brigham and Women's Hospital / Harvard Medical School"
+repository-code: "https://github.com/jbgibbons093/skinny-label-nlp"
+url: "https://jbgibbons093.github.io/skinny-label-nlp/skinny_label_explorer_v3.html"
+license: MIT
+preferred-citation:
+  type: article
+  authors:
+    - given-names: S. Sean
+      family-names: Tu
+    - given-names: Jason
+      family-names: Gibbons
+  title: "Semantic Misalignment Between Patent Use Codes and Approved Indications in the FDA Orange Book"
+  journal: "New England Journal of Medicine"
+  year: 2026
+  status: "submitted"
