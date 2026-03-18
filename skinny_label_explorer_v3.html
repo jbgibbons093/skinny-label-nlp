@@ -1678,7 +1678,8 @@ function drawDrugChart(nda) {
   const iu = tl.map(d => d.iu != null ? d.iu : null);
   const trap = tl.map(d => d.ts != null ? d.ts : null);
 
-  const simVals = [...cu, ...iu].filter(v => v !== null);
+  const ciPerYearForRange = tl.map(d => d.ci != null ? d.ci : null);
+  const simVals = [...cu, ...iu, ...ciPerYearForRange].filter(v => v !== null);
   const yMin = simVals.length ? Math.min(...simVals) - 0.01 : 0;
   const yMax = simVals.length ? Math.max(...simVals) + 0.01 : 1;
 
@@ -1741,15 +1742,23 @@ function drawDrugChart(nda) {
   drawLine(iu, '#009E73', false, yScale);
   drawLine(trap, '#CC79A7', false, tScale);
 
-  // Claim-Indication horizontal reference line (static — not per-year)
-  const ciStats = getCIStats(nda);
-  if (ciStats.ci_mean != null && ciStats.ci_mean >= yMin && ciStats.ci_mean <= yMax) {
-    const ciY = yScale(ciStats.ci_mean);
-    ctx.beginPath(); ctx.strokeStyle = '#0072B2'; ctx.lineWidth = 2;
-    ctx.moveTo(pad2.left, ciY); ctx.lineTo(w - pad2.right, ciY);
-    ctx.stroke();
-    ctx.fillStyle = '#0072B2'; ctx.font = '10px Arial'; ctx.textAlign = 'left';
-    ctx.fillText(`CI ${ciStats.ci_mean.toFixed(3)}`, pad2.left + 4, ciY - 4);
+  // Claim-Indication line (time-varying if available, else flat)
+  const ciPerYear = tl.map(d => d.ci != null ? d.ci : null);
+  const hasCITimeline = ciPerYear.some(v => v !== null);
+  if (hasCITimeline) {
+    // Include CI values in the y-axis range
+    const ciValsForRange = ciPerYear.filter(v => v !== null);
+    // Draw as a proper time-varying line
+    drawLine(ciPerYear, '#0072B2', false, yScale);
+  } else {
+    // Fallback: flat line from static CI
+    const ciStats = getCIStats(nda);
+    if (ciStats.ci_mean != null && ciStats.ci_mean >= yMin && ciStats.ci_mean <= yMax) {
+      const ciY = yScale(ciStats.ci_mean);
+      ctx.beginPath(); ctx.strokeStyle = '#0072B2'; ctx.lineWidth = 2;
+      ctx.moveTo(pad2.left, ciY); ctx.lineTo(w - pad2.right, ciY);
+      ctx.stroke();
+    }
   }
 
   const currentYear = parseInt(document.getElementById('year-slider')?.value || '0', 10);
