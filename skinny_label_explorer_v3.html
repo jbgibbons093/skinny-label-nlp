@@ -180,16 +180,6 @@
 <div class="main">
   <div class="sidebar">
     <div class="card">
-      <h3>Dataset Overview</h3>
-      <div class="stat-grid">
-        <div class="stat"><div class="value" id="s-ndas">-</div><div class="label">Treatment NDAs</div></div>
-        <div class="stat"><div class="value" id="s-years">-</div><div class="label">Years</div></div>
-        <div class="stat"><div class="value" id="s-trap">-</div><div class="label" id="s-trap-label">Mean Claim-Ind</div></div>
-        <div class="stat"><div class="value" id="s-control">-</div><div class="label">Control NDAs</div></div>
-      </div>
-    </div>
-
-    <div class="card">
       <h3>Select Drug</h3>
       <input type="text" id="drug-search" placeholder="Search by name, NDA, or ingredient...">
       <div id="drug-list"></div>
@@ -208,6 +198,17 @@
 
     <!-- AGGREGATE TAB -->
     <div class="tab-panel" id="panel-aggregate">
+      <div class="card">
+        <h3>Dataset Overview</h3>
+        <div class="stat-grid">
+          <div class="stat"><div class="value" id="s-ndas">-</div><div class="label">Treatment NDAs</div></div>
+          <div class="stat"><div class="value" id="s-years">-</div><div class="label">Years</div></div>
+          <div class="stat"><div class="value" id="s-trap">-</div><div class="label" id="s-trap-label">Mean Claim-Ind</div></div>
+          <div class="stat"><div class="value" id="s-control">-</div><div class="label">Control NDAs</div></div>
+        </div>
+        <div class="snapshot-foot" style="margin-top:12px;">Corpus-level counts and summary statistics for the full dataset. Use the panels below for year-specific aggregate behavior.</div>
+      </div>
+
       <div class="panels">
         <div class="card">
           <h3>Aggregate Temporal Trends
@@ -1382,8 +1383,7 @@ function init() {
 
   // Year slider
   document.getElementById('year-slider').addEventListener('input', e => {
-    document.getElementById('year-label').textContent = e.target.value;
-    if (selectedDrug) renderNetwork(selectedDrug, parseInt(e.target.value));
+    syncYear(parseInt(e.target.value, 10));
   });
 
   // Play button
