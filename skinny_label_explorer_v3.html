@@ -1079,23 +1079,24 @@ function updateSelectedOverview(nda) {
   const net = networkCache[nda] || null;
   const totalClaims = net && net.patents ? net.patents.reduce((s, p) => s + (p.claims ? p.claims.length : 0), 0) : null;
   const ciStats = getCIStats(nda, net);
-  const ciMean = ciStats.ci_mean ?? null;
-  const orphanRate = ciStats.orphan_rate ?? null;
+  const tl = DATA.timelines[nda] || [];
+  const latestEntry = tl.length ? tl[tl.length - 1] : null;
+  const ciMean = latestEntry && latestEntry.ci != null ? latestEntry.ci : (ciStats.ci_mean ?? null);
+  const ciYear = latestEntry ? latestEntry.y : null;
 
   document.getElementById('d-name').textContent = `${drug.name} (${drug.nda})`;
   document.getElementById('d-ingredient').textContent = drug.ingredient || '-';
   document.getElementById('d-ci').textContent = ciMean != null ? ciMean.toFixed(3) : '-';
-  // Compute percentile rank
   let pctile = '';
   if (ciMean != null) {
     const allCI = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
     if (allCI.length > 0) {
       const below = allCI.filter(v => v < ciMean).length;
-      pctile = ` | ${Math.round(100 * below / allCI.length)}th percentile`;
+      pctile = ` | ${Math.round(100 * below / allCI.length)}th pctile`;
     }
   }
   document.getElementById('d-ci-sub').textContent = ciMean != null
-    ? ciLabel(ciMean) + pctile
+    ? ciLabel(ciMean) + (ciYear ? ` (${ciYear})` : '') + pctile
     : '-';
   const el_cu = document.getElementById('d-cu');
   const el_iu = document.getElementById('d-iu');
@@ -1982,7 +1983,8 @@ function renderSimpleNetwork(nda, year) {
   node.on('mouseover', (e, d) => {
     let html = `<strong>${d.label}</strong>`;
     if (d.type === 'drug') {
-      if (ciStats.ci_mean != null) html += `<div class="tt-label">Claim-Indication</div><div class="tt-sim" style="color:#0072B2">${ciStats.ci_mean.toFixed(3)}</div>`;
+      const yearCI = best.ci ?? ciStats.ci_mean;
+      if (yearCI != null) html += `<div class="tt-label">Claim-Indication (${best.y})</div><div class="tt-sim" style="color:#0072B2">${yearCI.toFixed(3)}</div>`;
       if (best.cu != null) html += `<div class="tt-label">Claim-UC</div><div class="tt-sim">${best.cu.toFixed(3)}</div>`;
       if (best.iu != null) html += `<div class="tt-label">Ind-UC</div><div class="tt-sim">${best.iu.toFixed(3)}</div>`;
       if (best.ts != null) {
@@ -2011,10 +2013,11 @@ function renderSimpleNetwork(nda, year) {
     .attr('font-size', '15px').attr('font-weight', '700').attr('fill', '#0072B2')
     .text(`${best.y} | ${ucs.length} use codes`);
   infoY += 18;
-  if (ciStats.ci_mean != null) {
+  const yearCI = best.ci ?? ciStats.ci_mean;
+  if (yearCI != null) {
     svg.append('text').attr('x', w - 12).attr('y', infoY).attr('text-anchor', 'end')
       .attr('font-size', '12px').attr('fill', '#0072B2')
-      .text(`Claim-Ind: ${ciStats.ci_mean.toFixed(3)}`);
+      .text(`Claim-Ind: ${yearCI.toFixed(3)}`);
     infoY += 16;
   }
   if (best.ts != null) {
@@ -2400,13 +2403,9 @@ function renderGATNetwork(nda, year, net, isHeavy) {
   svg.append('text').attr('x', w - 12).attr('y', 56).attr('text-anchor', 'end')
     .attr('font-size', '11px').attr('fill', '#999')
     .text(`${activeEdges.length} edges | ${activePatents.length} patents`);
+  const netYearCI = best.ci ?? ciStats.ci_mean;
   document.getElementById('filter-summary').textContent =
-    `CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | ${activePatents.length} patents | ${totalClaims} claims | ${activeUCData.length} UCs | ${activeEdges.length} edges${wasCapped ? ' | capped at ' + MAX_EDGES_NETWORK + ' (increase Top N for more)' : ''}`;
-  if (ciStats.ci_mean != null) {
-    svg.append('text').attr('x', w - 12).attr('y', 72).attr('text-anchor', 'end')
-      .attr('font-size', '11px').attr('fill', '#0f766e')
-      .text(`Claim-Ind ${ciStats.ci_mean.toFixed(3)} | orphan ${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'}`);
-  }
+    `CI ${netYearCI != null ? netYearCI.toFixed(3) : 'N/A'} (${best.y}) | ${activePatents.length} patents | ${totalClaims} claims | ${activeUCData.length} UCs | ${activeEdges.length} edges${wasCapped ? ' | capped at ' + MAX_EDGES_NETWORK + ' (increase Top N for more)' : ''}`;
   // Capped notice goes in filter-summary (not inside SVG where it gets clipped)
 
   // Tick handler
@@ -2571,7 +2570,7 @@ function renderSankey(nda, year, net, isHeavy) {
     .attr('font-size', '14px').attr('font-weight', '700').attr('fill', '#1a365d')
     .text(`${drugName} — ${best.y}`);
   document.getElementById('filter-summary').textContent =
-    `CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | ${patents.length} patents | ${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} Sankey links${sankeyCapped ? ' | capped at ' + MAX_EDGES_SANKEY : ''}`;
+    `CI ${(best.ci ?? ciStats.ci_mean) != null ? (best.ci ?? ciStats.ci_mean).toFixed(3) : 'N/A'} (${best.y}) | ${patents.length} patents | ${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} Sankey links${sankeyCapped ? ' | capped at ' + MAX_EDGES_SANKEY : ''}`;
 
   // Draw flows: Patent → Claim
   const flowG = svg.append('g').attr('opacity', 0.3);
@@ -2749,7 +2748,7 @@ function renderHeatmap(nda, year, net) {
     return;
   }
   document.getElementById('filter-summary').textContent =
-    `CI ${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'} | orphan ${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'} | ${claimIds.length} claims | ${ucCodes.length} UCs | ${filteredEdges.length} heatmap edges`;
+    `CI ${(best ? best.ci : null) ?? (ciStats.ci_mean) != null ? ((best ? best.ci : null) ?? ciStats.ci_mean).toFixed(3) : 'N/A'}${best ? ' (' + best.y + ')' : ''} | ${claimIds.length} claims | ${colCount} ${isClaimInd ? 'indications' : 'UCs'} | ${filteredEdges.length} edges`;
 
   // Build similarity and scope gap maps
   const simMap = {};
