@@ -266,7 +266,7 @@
           <div class="sub">Latest year</div>
         </div>
         <div class="detail-stat">
-          <div class="label">Scope Gap <span class="help-icon">?<span class="help-tip">Claim-UC minus Indication-UC. Positive = patent claims semantically exceed what the label covers for use codes. Negative = label covers use codes better than claims. Near zero on average across all treatment NDAs.</span></span></div>
+          <div class="label">Scope Gap <span class="help-icon">?<span class="help-tip">Claim-UC minus Indication-UC for this drug's latest OB year. Positive = patent claims semantically exceed label coverage. Negative = label covers use codes better. Computed across treatment NDAs with label and use-code data.</span></span></div>
           <div class="value" id="d-gap">-</div>
           <div class="sub" id="d-gap-sub">Claim-UC minus Ind-UC</div>
         </div>
@@ -314,7 +314,7 @@
           <option value="iu">Indication-UC</option>
           <option value="gap">Scope Gap</option>
         </select>
-        <span class="help-icon">?<span class="help-tip">Distribution of the selected measure across NDAs with data. For similarity measures, the dashed line marks 0.88. For Scope Gap, the dashed line marks zero (positive = claims exceed label). The red marker shows the currently selected drug. Switch the dropdown to compare across measures.</span></span>
+        <span class="help-icon">?<span class="help-tip">Distribution of the selected measure. Claim-Indication uses NDAs with CI data in the network index. Claim-UC, Indication-UC, and Scope Gap use treatment NDAs with label/use-code data. For similarity measures, the dashed line marks 0.88. For Scope Gap, the line marks zero. The red marker shows the selected drug.</span></span>
       </h3>
       <canvas id="ci-dist-chart" style="width:100%;height:180px;"></canvas>
     </div>
@@ -1683,10 +1683,10 @@ function drawTrendChart() {
     const idx = Math.max(0, Math.min(years.length - 1, Math.round((mx - pad.left) / ((w - pad.left - pad.right) / Math.max(1, years.length - 1)))));
     const yr = DATA.yearly[idx];
     if (!yr) return;
-    const ciValues = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
-    const aggCiMean = ciValues.length ? ciValues.reduce((a, b) => a + b, 0) / ciValues.length : null;
+    // Per-year CI from timelines
+    const yrCI = ciByYear[idx];
     const tooltip = document.getElementById('tooltip');
-    tooltip.innerHTML = `<strong>${yr.y}</strong><div class="tt-label">Claim-Ind (all indexed NDAs)</div><div>${aggCiMean != null ? aggCiMean.toFixed(3) : 'N/A'}</div><div class="tt-label">Claim-UC</div><div>${(yr.cu ?? 0).toFixed(3)}</div><div class="tt-label">Indication-UC</div><div>${(yr.iu ?? 0).toFixed(3)}</div><div class="tt-label">Scope gap</div><div>${(yr.ts ?? 0).toFixed(3)}</div><div class="tt-label">NDAs</div><div>${yr.n ?? '-'}</div>`;
+    tooltip.innerHTML = `<strong>${yr.y}</strong><div class="tt-label">Claim-Ind (${yr.y})</div><div>${yrCI != null ? yrCI.toFixed(3) : 'N/A'}</div><div class="tt-label">Claim-UC</div><div>${(yr.cu ?? 0).toFixed(3)}</div><div class="tt-label">Indication-UC</div><div>${(yr.iu ?? 0).toFixed(3)}</div><div class="tt-label">Scope Gap</div><div>${(yr.ts ?? 0).toFixed(3)}</div><div class="tt-label">NDAs (UC data)</div><div>${yr.n ?? '-'}</div>`;
     tooltip.style.display = 'block';
     tooltip.style.left = (e.pageX + 14) + 'px';
     tooltip.style.top = (e.pageY - 14) + 'px';
@@ -2754,8 +2754,9 @@ function renderHeatmap(nda, year, net) {
     document.getElementById('pat-legend').innerHTML = '';
     return;
   }
+  const hmCI = (best ? best.ci : null) ?? ciStats.ci_mean ?? null;
   document.getElementById('filter-summary').textContent =
-    `CI ${(best ? best.ci : null) ?? (ciStats.ci_mean) != null ? ((best ? best.ci : null) ?? ciStats.ci_mean).toFixed(3) : 'N/A'}${best ? ' (' + best.y + ')' : ''} | ${claimIds.length} claims | ${colCount} ${isClaimInd ? 'indications' : 'UCs'} | ${filteredEdges.length} edges`;
+    `CI ${hmCI != null ? hmCI.toFixed(3) : 'N/A'}${best ? ' (' + best.y + ')' : ''} | ${claimIds.length} claims | ${colCount} ${isClaimInd ? 'indications' : 'UCs'} | ${filteredEdges.length} edges`;
 
   // Build similarity and scope gap maps
   const simMap = {};
