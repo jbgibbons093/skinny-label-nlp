@@ -2754,10 +2754,6 @@ function renderHeatmap(nda, year, net) {
     document.getElementById('pat-legend').innerHTML = '';
     return;
   }
-  const hmCI = (best ? best.ci : null) ?? ciStats.ci_mean ?? null;
-  document.getElementById('filter-summary').textContent =
-    `CI ${hmCI != null ? hmCI.toFixed(3) : 'N/A'}${best ? ' (' + best.y + ')' : ''} | ${claimIds.length} claims | ${colCount} ${isClaimInd ? 'indications' : 'UCs'} | ${filteredEdges.length} edges`;
-
   // Build similarity and scope gap maps
   const simMap = {};
   const gapMap = {};
@@ -2804,6 +2800,10 @@ function renderHeatmap(nda, year, net) {
     ctx2.fillText(isClaimInd ? 'No indication data for this drug' : 'No data', 200, 50);
     return;
   }
+
+  const hmCI = (best ? best.ci : null) ?? ciStats.ci_mean ?? null;
+  document.getElementById('filter-summary').textContent =
+    `CI ${hmCI != null ? hmCI.toFixed(3) : 'N/A'}${best ? ' (' + best.y + ')' : ''} | ${claimIds.length} claims | ${colCount} ${isClaimInd ? 'indications' : 'UCs'} | ${filteredEdges.length} edges`;
 
   // Build CI edge map for claim-indication mode
   const ciEdgeMap = {};
