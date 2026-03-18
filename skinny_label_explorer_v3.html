@@ -231,7 +231,7 @@
         <div class="snapshot-meta" id="agg-snapshot-meta">Select a year to see aggregate metrics.</div>
         <div class="snapshot-row">
           <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="agg-ci">-</span></div>
-          <div class="snapshot-pill"><span class="label">Weak CI Rate</span><span class="value" id="agg-orphan">-</span></div>
+          <div class="snapshot-pill"><span class="label">Weak CI Rate (static)</span><span class="value" id="agg-orphan">-</span></div>
           <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="agg-cu">-</span></div>
           <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="agg-iu">-</span></div>
           <div class="snapshot-pill"><span class="label">NDAs</span><span class="value" id="agg-ndas">-</span></div>
@@ -258,12 +258,12 @@
         <div class="detail-stat">
           <div class="label">Claim-UC <span class="help-icon">?<span class="help-tip">How closely do patent claims match Orange Book use code descriptions? High values mean the patent's legal language aligns with its stated regulatory purpose.</span></span></div>
           <div class="value" id="d-cu">-</div>
-          <div class="sub">Latest year</div>
+          <div class="sub">Selected year</div>
         </div>
         <div class="detail-stat">
           <div class="label">Ind-UC <span class="help-icon">?<span class="help-tip">How closely does the drug's approved label match its use codes? When this is low, use codes may exist without corresponding approved indications &mdash; potential "phantom" codes.</span></span></div>
           <div class="value" id="d-iu">-</div>
-          <div class="sub">Latest year</div>
+          <div class="sub">Selected year</div>
         </div>
         <div class="detail-stat">
           <div class="label">Scope Gap <span class="help-icon">?<span class="help-tip">Claim-UC minus Indication-UC for this drug's latest OB year. Positive = patent claims semantically exceed label coverage. Negative = label covers use codes better. Computed across treatment NDAs with label and use-code data.</span></span></div>
@@ -314,7 +314,7 @@
           <option value="iu">Indication-UC</option>
           <option value="gap">Scope Gap</option>
         </select>
-        <span class="help-icon">?<span class="help-tip">Distribution of the selected measure. Claim-Indication uses NDAs with CI data in the network index. Claim-UC, Indication-UC, and Scope Gap use treatment NDAs with label/use-code data. For similarity measures, the dashed line marks 0.88. For Scope Gap, the line marks zero. The red marker shows the selected drug.</span></span>
+        <span class="help-icon">?<span class="help-tip">Distribution of the selected measure. When timeline data exist, the chart uses the currently selected year; otherwise it falls back to NDA-level values. Claim-Indication uses NDAs with CI data in the network index. Claim-UC, Indication-UC, and Scope Gap use treatment NDAs with label/use-code data. For similarity measures, the dashed line marks 0.88. For Scope Gap, the line marks zero. The red marker shows the selected drug.</span></span>
       </h3>
       <canvas id="ci-dist-chart" style="width:100%;height:180px;"></canvas>
     </div>
@@ -433,6 +433,9 @@
           <select id="dir-family">
             <option value="all">All ingredient families</option>
           </select>
+          <select id="dir-year">
+            <option value="current">Explorer year</option>
+          </select>
           <select id="dir-gap-sign">
             <option value="all">All claim-indication bands</option>
             <option value="positive">High claim-indication only</option>
@@ -453,7 +456,7 @@
             <option value="edge_desc">Sort: network edges high to low</option>
             <option value="uc_desc">Sort: use codes high to low</option>
             <option value="name_asc">Sort: name A-Z</option>
-            <option value="year_desc">Sort: latest year</option>
+            <option value="year_desc">Sort: selected year</option>
           </select>
           <select id="dir-network">
             <option value="all">All network availability</option>
@@ -484,7 +487,7 @@
                 <th>Ingredient</th>
                 <th class="sortable" data-sort="ci_desc" style="cursor:pointer;">Claim-Ind &#x25BE;</th>
                 <th class="sortable" data-sort="uc_desc" style="cursor:pointer;">Use codes</th>
-                <th class="sortable" data-sort="orphan_desc" style="cursor:pointer;">Weak CI %</th>
+                <th class="sortable" data-sort="orphan_desc" style="cursor:pointer;">Weak CI % (static)</th>
                 <th class="sortable" data-sort="cu_desc" style="cursor:pointer;">Claim-UC</th>
                 <th class="sortable" data-sort="iu_desc" style="cursor:pointer;">Ind-UC</th>
                 <th class="sortable" data-sort="year_desc" style="cursor:pointer;">Year</th>
@@ -570,9 +573,9 @@
         <div class="stack">
           <div class="card">
             <h3>Reading the Results</h3>
-            <p class="info-text"><strong>Claim-Indication (primary).</strong> The mean CI across indexed NDAs is high &mdash; most patent claims do semantically align with approved indications. The finding is not the average but the tails: which specific drugs and claims show weak alignment? Check the distribution chart and weakest-matches panel for each drug.</p>
-            <p class="info-text" style="margin-top:8px"><strong>Scope Gap (secondary).</strong> Near zero on average, meaning patent claims and label indications cover use codes roughly equally. No structural break was detected at either GSK v. Teva (2021, p=0.924) or Amarin v. Hikma (2024, p=0.901). The legal landmarks did not measurably change the semantic relationship between patents and labels.</p>
-            <p class="info-text" style="margin-top:8px"><strong>Vascepa.</strong> Scope gap is negative (-0.024), meaning the label actually covers use codes better than the patent claims do. This complicates the narrative that Vascepa is a poster child for the skinny label trap &mdash; semantically, the label is well-aligned. The legal problem was about specific claim construction and doctrine of equivalents, not broad semantic mismatch.</p>
+            <p class="info-text" id="results-ci-text"><strong>Claim-Indication (primary).</strong> This section is populated from the current data.</p>
+            <p class="info-text" style="margin-top:8px" id="results-gap-text"><strong>Scope Gap (secondary).</strong> This section is populated from the current data.</p>
+            <p class="info-text" style="margin-top:8px" id="results-case-text"><strong>Interpretation.</strong> This section is populated from the current data.</p>
           </div>
           <div class="card">
             <h3>Legal & Policy Context</h3>
@@ -1033,7 +1036,7 @@ function setTab(tab) {
 let directorySortKey = 'ci_desc';
 
 function setupDirectoryControls() {
-  ['dir-search', 'dir-family', 'dir-gap-sign', 'dir-usecodes', 'dir-sort', 'dir-network', 'dir-complexity', 'dir-ingredient'].forEach(id => {
+  ['dir-search', 'dir-family', 'dir-year', 'dir-gap-sign', 'dir-usecodes', 'dir-sort', 'dir-network', 'dir-complexity', 'dir-ingredient'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input', renderDirectory);
@@ -1072,6 +1075,19 @@ function populateDirectoryFamilies() {
   buildDirectoryFamilies();
   select.innerHTML = '<option value="all">All ingredient families</option>' +
     directoryFamilies.map(token => `<option value="${token}">${token}</option>`).join('');
+}
+
+function populateDirectoryYears() {
+  const select = document.getElementById('dir-year');
+  if (!select || !DATA || !DATA.yearly) return;
+  const current = document.getElementById('year-slider')?.value || '2024';
+  select.innerHTML = `<option value="current">Explorer year (${current})</option>` +
+    DATA.yearly.map(d => `<option value="${d.y}">${d.y}</option>`).join('');
+  if (!select.value || ![...select.options].some(o => o.value === select.value)) {
+    select.value = 'current';
+  } else if (select.value === 'current') {
+    select.options[0].textContent = `Explorer year (${current})`;
+  }
 }
 
 function formatGap(ts) {
@@ -1182,10 +1198,35 @@ function updateSnapshotCards() {
   // Drug-year snapshot removed — info now in Selected Drug Overview
 }
 
+function updateNarrativeCards() {
+  const ciText = document.getElementById('results-ci-text');
+  const gapText = document.getElementById('results-gap-text');
+  const caseText = document.getElementById('results-case-text');
+  if (!ciText || !gapText || !caseText) return;
+
+  const ciValues = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
+  const gapValues = DATA.drugs.map(d => d.trap_score).filter(v => v != null);
+  const meanCi = ciValues.length ? ciValues.reduce((a, b) => a + b, 0) / ciValues.length : null;
+  const meanGap = gapValues.length ? gapValues.reduce((a, b) => a + b, 0) / gapValues.length : null;
+  const weakShare = Object.values(CI_INDEX)
+    .map(v => v.orphan_rate)
+    .filter(v => v != null);
+  const meanWeak = weakShare.length ? weakShare.reduce((a, b) => a + b, 0) / weakShare.length : null;
+  const vascepa = DATA.drugs.find(d => (d.name || '').toLowerCase().includes('vascepa'));
+
+  ciText.innerHTML = `<strong>Claim-Indication (primary).</strong> The mean claim-indication score across indexed NDAs is ${meanCi != null ? meanCi.toFixed(3) : 'N/A'} (${ciValues.length.toLocaleString()} NDAs with CI data). Average alignment is high, so the main analytical value is in the tails: which drugs, years, and claims fall below the weak-alignment threshold and where does the network become hard to separate?`;
+  gapText.innerHTML = `<strong>Scope Gap (secondary).</strong> The mean scope gap across NDAs with use-code data is ${meanGap != null ? (meanGap >= 0 ? '+' : '') + meanGap.toFixed(3) : 'N/A'} (${gapValues.length.toLocaleString()} NDAs). In the current data the series stays near zero, so this metric works better as a secondary diagnostic than as the headline result. Weak CI rate is currently static in the site because orphan/weak-claim data are not stored by year (mean ${meanWeak != null ? (meanWeak * 100).toFixed(0) + '%' : 'N/A'}).`;
+  caseText.innerHTML = `<strong>Interpretation.</strong> The strongest use of the explorer is to inspect direct claim-label alignment and where it breaks down at the claim level. ${vascepa && vascepa.trap_score != null ? `For example, Vascepa's NDA-level scope gap in the current export is ${(vascepa.trap_score >= 0 ? '+' : '') + vascepa.trap_score.toFixed(3)}, which is a reminder that case-law salience and semantic overreach are not the same thing.` : 'Individual case salience and semantic mismatch do not necessarily move together.'}`;
+}
+
 function renderDirectory() {
   if (!DATA || !DATA.drugs) return;
   const q = (document.getElementById('dir-search')?.value || '').trim().toLowerCase();
   const family = document.getElementById('dir-family')?.value || 'all';
+  const dirYearValue = document.getElementById('dir-year')?.value || 'current';
+  const activeYear = dirYearValue === 'current'
+    ? parseInt(document.getElementById('year-slider')?.value || '2024', 10)
+    : parseInt(dirYearValue, 10);
   const ingredientQ = (document.getElementById('dir-ingredient')?.value || '').trim().toLowerCase();
   const gapSign = document.getElementById('dir-gap-sign')?.value || 'all';
   const ucMin = document.getElementById('dir-usecodes')?.value || 'all';
@@ -1197,14 +1238,16 @@ function renderDirectory() {
     const text = `${d.name} ${d.nda} ${d.ingredient || ''}`.toLowerCase();
     const networkMeta = getNetworkMeta(d.nda);
     const ciStats = getCIStats(d.nda);
-    const ciMean = ciStats.ci_mean ?? null;
+    const entry = getClosestTimelineEntry(d.nda, activeYear);
+    const ciMean = entry && entry.ci != null ? entry.ci : (ciStats.ci_mean ?? null);
+    const useCodeCount = entry && entry.nuc != null ? entry.nuc : (d.n_use_codes || 0);
     if (q && !text.includes(q)) return false;
     if (family !== 'all' && !tokenizeIngredient(d.ingredient).includes(family)) return false;
     if (ingredientQ && !(d.ingredient || '').toLowerCase().includes(ingredientQ) && !(d.name || '').toLowerCase().includes(ingredientQ)) return false;
     if (gapSign === 'positive' && !(ciMean != null && ciMean >= CFG.CI_BANDS.strong)) return false;
     if (gapSign === 'negative' && !(ciMean != null && ciMean < CFG.SIM_THRESHOLD)) return false;
     if (gapSign === 'missing' && ciMean != null) return false;
-    if (ucMin !== 'all' && (d.n_use_codes || 0) < parseInt(ucMin)) return false;
+    if (ucMin !== 'all' && useCodeCount < parseInt(ucMin)) return false;
     if (networkFilter === 'loaded' && !networkMeta.hasNetwork) return false;
     if (networkFilter === 'missing' && networkMeta.hasNetwork) return false;
     if (networkFilter === 'heavy' && !(networkMeta.edges != null && networkMeta.edges >= 1000)) return false;
@@ -1215,48 +1258,76 @@ function renderDirectory() {
   const nullLow = v => v == null ? -Infinity : v;
   const nullHigh = v => v == null ? Infinity : v;
   rows.sort((a, b) => {
-    if (sort === 'ci_desc') return nullLow(getCIStats(b.nda).ci_mean) - nullLow(getCIStats(a.nda).ci_mean);
-    if (sort === 'ci_asc') return nullHigh(getCIStats(a.nda).ci_mean) - nullHigh(getCIStats(b.nda).ci_mean);
+    const aEntry = getClosestTimelineEntry(a.nda, activeYear);
+    const bEntry = getClosestTimelineEntry(b.nda, activeYear);
+    const aCI = aEntry && aEntry.ci != null ? aEntry.ci : getCIStats(a.nda).ci_mean;
+    const bCI = bEntry && bEntry.ci != null ? bEntry.ci : getCIStats(b.nda).ci_mean;
+    const aCU = aEntry && aEntry.cu != null ? aEntry.cu : a.claim_uc;
+    const bCU = bEntry && bEntry.cu != null ? bEntry.cu : b.claim_uc;
+    const aIU = aEntry && aEntry.iu != null ? aEntry.iu : a.ind_uc;
+    const bIU = bEntry && bEntry.iu != null ? bEntry.iu : b.ind_uc;
+    const aUCs = aEntry && aEntry.nuc != null ? aEntry.nuc : a.n_use_codes;
+    const bUCs = bEntry && bEntry.nuc != null ? bEntry.nuc : b.n_use_codes;
+    const aYear = aEntry && aEntry.y != null ? aEntry.y : a.ob_year;
+    const bYear = bEntry && bEntry.y != null ? bEntry.y : b.ob_year;
+    if (sort === 'ci_desc') return nullLow(bCI) - nullLow(aCI);
+    if (sort === 'ci_asc') return nullHigh(aCI) - nullHigh(bCI);
     if (sort === 'edge_desc') return (getNetworkMeta(b.nda).edges || 0) - (getNetworkMeta(a.nda).edges || 0);
     if (sort === 'edge_asc') return (getNetworkMeta(a.nda).edges || 0) - (getNetworkMeta(b.nda).edges || 0);
-    if (sort === 'uc_desc') return (b.n_use_codes || 0) - (a.n_use_codes || 0);
-    if (sort === 'uc_asc') return (a.n_use_codes || 0) - (b.n_use_codes || 0);
+    if (sort === 'uc_desc') return (bUCs || 0) - (aUCs || 0);
+    if (sort === 'uc_asc') return (aUCs || 0) - (bUCs || 0);
     if (sort === 'name_asc') return (a.name || '').localeCompare(b.name || '');
     if (sort === 'name_desc') return (b.name || '').localeCompare(a.name || '');
-    if (sort === 'year_desc') return (b.ob_year || 0) - (a.ob_year || 0);
-    if (sort === 'year_asc') return (a.ob_year || 0) - (b.ob_year || 0);
+    if (sort === 'year_desc') return (bYear || 0) - (aYear || 0);
+    if (sort === 'year_asc') return (aYear || 0) - (bYear || 0);
     if (sort === 'orphan_desc') return nullLow(getCIStats(b.nda).orphan_rate) - nullLow(getCIStats(a.nda).orphan_rate);
     if (sort === 'orphan_asc') return nullHigh(getCIStats(a.nda).orphan_rate) - nullHigh(getCIStats(b.nda).orphan_rate);
-    if (sort === 'cu_desc') return nullLow(b.claim_uc) - nullLow(a.claim_uc);
-    if (sort === 'cu_asc') return nullHigh(a.claim_uc) - nullHigh(b.claim_uc);
-    if (sort === 'iu_desc') return nullLow(b.ind_uc) - nullLow(a.ind_uc);
-    if (sort === 'iu_asc') return nullHigh(a.ind_uc) - nullHigh(b.ind_uc);
+    if (sort === 'cu_desc') return nullLow(bCU) - nullLow(aCU);
+    if (sort === 'cu_asc') return nullHigh(aCU) - nullHigh(bCU);
+    if (sort === 'iu_desc') return nullLow(bIU) - nullLow(aIU);
+    if (sort === 'iu_asc') return nullHigh(aIU) - nullHigh(bIU);
     return 0;
   });
 
   const body = document.getElementById('directory-body');
   const meta = document.getElementById('dir-meta');
   if (!body || !meta) return;
-  meta.textContent = `${rows.length.toLocaleString()} of ${DATA.drugs.length.toLocaleString()} drugs shown`;
+  meta.textContent = `${rows.length.toLocaleString()} of ${DATA.drugs.length.toLocaleString()} drugs shown | metrics for ${dirYearValue === 'current' ? 'Explorer year ' + activeYear : activeYear} | weak CI % static`;
   body.innerHTML = rows.map(d => `
     <tr>
       <td><strong>${d.name}</strong><br><span style="color:#8a96a3">NDA ${d.nda}</span></td>
       <td>${d.ingredient || '-'}</td>
       <td style="font-weight:700;color:${(() => {
-        const ci = getCIStats(d.nda).ci_mean;
+        const entry = getClosestTimelineEntry(d.nda, activeYear);
+        const ci = entry && entry.ci != null ? entry.ci : getCIStats(d.nda).ci_mean;
         return ci == null ? '#8a96a3' : ci >= CFG.CI_BANDS.strong ? '#0f766e' : ci >= CFG.SIM_THRESHOLD ? '#2563eb' : '#D55E00';
       })()}">${(() => {
-        const ci = getCIStats(d.nda).ci_mean;
+        const entry = getClosestTimelineEntry(d.nda, activeYear);
+        const ci = entry && entry.ci != null ? entry.ci : getCIStats(d.nda).ci_mean;
         return ci != null ? ci.toFixed(3) : '-';
       })()}</td>
-      <td>${d.n_use_codes ?? '-'}</td>
       <td>${(() => {
+        const entry = getClosestTimelineEntry(d.nda, activeYear);
+        return entry && entry.nuc != null ? entry.nuc : (d.n_use_codes ?? '-');
+      })()}</td>
+      <td title="Static across years in current data">${(() => {
         const orph = getCIStats(d.nda).orphan_rate;
         return orph != null ? `${(orph * 100).toFixed(0)}%` : '-';
       })()}</td>
-      <td>${d.claim_uc != null ? d.claim_uc.toFixed(3) : '-'}</td>
-      <td>${d.ind_uc != null ? d.ind_uc.toFixed(3) : '-'}</td>
-      <td>${d.ob_year ?? '-'}</td>
+      <td>${(() => {
+        const entry = getClosestTimelineEntry(d.nda, activeYear);
+        const val = entry && entry.cu != null ? entry.cu : d.claim_uc;
+        return val != null ? val.toFixed(3) : '-';
+      })()}</td>
+      <td>${(() => {
+        const entry = getClosestTimelineEntry(d.nda, activeYear);
+        const val = entry && entry.iu != null ? entry.iu : d.ind_uc;
+        return val != null ? val.toFixed(3) : '-';
+      })()}</td>
+      <td>${(() => {
+        const entry = getClosestTimelineEntry(d.nda, activeYear);
+        return entry && entry.y != null ? entry.y : (d.ob_year ?? '-');
+      })()}</td>
       <td>${(() => {
         const nm = getNetworkMeta(d.nda);
         const cls = !nm.hasNetwork ? 'missing' : nm.edges >= 1000 ? 'warn' : 'good';
@@ -1361,6 +1432,7 @@ function init() {
   setupTabs();
   setupDirectoryControls();
   populateDirectoryFamilies();
+  populateDirectoryYears();
   populateAggYearSelect();
 
   // Log network index availability
@@ -1375,6 +1447,7 @@ function init() {
   // Draw aggregate trend
   drawTrendChart();
   updateSnapshotCards();
+  updateNarrativeCards();
   renderDirectory();
 
   // Draw CI distribution histogram
@@ -1596,13 +1669,17 @@ function syncYear(year) {
   const slider = document.getElementById('year-slider');
   slider.value = year;
   document.getElementById('year-label').textContent = year;
+  populateDirectoryYears();
   drawTrendChart();
+  drawCIDistribution();
+  if (compareList.length > 0) renderCompareTable();
   if (selectedDrug) {
     updateSelectedOverview(selectedDrug, parseInt(year, 10));
     drawDrugChart(selectedDrug);
     renderNetwork(selectedDrug, parseInt(year, 10));
   }
   updateSnapshotCards();
+  if (currentTab === 'directory' || document.getElementById('dir-year')?.value === 'current') renderDirectory();
 }
 
 // ======================================================================
@@ -3211,43 +3288,43 @@ function drawCIDistribution() {
   const selectedEntry = selectedDrug ? getClosestTimelineEntry(selectedDrug, selectedYear) : null;
 
   if (measure === 'ci') {
-    vals = Object.keys(DATA.timelines || {})
+    let yearVals = Object.keys(DATA.timelines || {})
       .map(nda => getExactTimelineEntry(nda, selectedYear))
       .map(entry => entry && entry.ci != null ? entry.ci : null)
       .filter(v => v != null);
-    if (vals.length === 0) vals = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
+    vals = yearVals.length > 0 ? yearVals : Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
     selectedVal = selectedEntry && selectedEntry.ci != null
       ? selectedEntry.ci
       : (selectedDrug && CI_INDEX[selectedDrug] ? CI_INDEX[selectedDrug].ci_mean : null);
     label = 'Claim-Indication'; color = '#0072B2';
-    dataNote = vals.length ? `${selectedYear}` : 'all NDAs';
+    dataNote = yearVals.length > 0 ? `${selectedYear}` : 'all NDAs';
   } else if (measure === 'cu') {
-    vals = Object.keys(DATA.timelines || {})
+    let yearVals = Object.keys(DATA.timelines || {})
       .map(nda => getExactTimelineEntry(nda, selectedYear))
       .map(entry => entry && entry.cu != null ? entry.cu : null)
       .filter(v => v != null);
-    if (vals.length === 0) vals = DATA.drugs.map(d => d.claim_uc).filter(v => v != null);
+    vals = yearVals.length > 0 ? yearVals : DATA.drugs.map(d => d.claim_uc).filter(v => v != null);
     selectedVal = selectedEntry && selectedEntry.cu != null ? selectedEntry.cu : (drug ? drug.claim_uc : null);
     label = 'Claim-UC'; color = '#D55E00';
-    dataNote = vals.length ? `${selectedYear}` : 'all NDAs';
+    dataNote = yearVals.length > 0 ? `${selectedYear}` : 'all NDAs';
   } else if (measure === 'iu') {
-    vals = Object.keys(DATA.timelines || {})
+    let yearVals = Object.keys(DATA.timelines || {})
       .map(nda => getExactTimelineEntry(nda, selectedYear))
       .map(entry => entry && entry.iu != null ? entry.iu : null)
       .filter(v => v != null);
-    if (vals.length === 0) vals = DATA.drugs.map(d => d.ind_uc).filter(v => v != null);
+    vals = yearVals.length > 0 ? yearVals : DATA.drugs.map(d => d.ind_uc).filter(v => v != null);
     selectedVal = selectedEntry && selectedEntry.iu != null ? selectedEntry.iu : (drug ? drug.ind_uc : null);
     label = 'Indication-UC'; color = '#009E73';
-    dataNote = vals.length ? `${selectedYear}` : 'all NDAs';
+    dataNote = yearVals.length > 0 ? `${selectedYear}` : 'all NDAs';
   } else if (measure === 'gap') {
-    vals = Object.keys(DATA.timelines || {})
+    let yearVals = Object.keys(DATA.timelines || {})
       .map(nda => getExactTimelineEntry(nda, selectedYear))
       .map(entry => entry && entry.ts != null ? entry.ts : null)
       .filter(v => v != null);
-    if (vals.length === 0) vals = DATA.drugs.map(d => d.trap_score).filter(v => v != null);
+    vals = yearVals.length > 0 ? yearVals : DATA.drugs.map(d => d.trap_score).filter(v => v != null);
     selectedVal = selectedEntry && selectedEntry.ts != null ? selectedEntry.ts : (drug ? drug.trap_score : null);
     label = 'Scope Gap'; color = '#CC79A7';
-    dataNote = vals.length ? `${selectedYear}` : 'all NDAs';
+    dataNote = yearVals.length > 0 ? `${selectedYear}` : 'all NDAs';
   }
 
   if (vals.length === 0) { ctx.fillStyle = '#999'; ctx.font = '13px Arial'; ctx.textAlign = 'center'; ctx.fillText('No data', w/2, h/2); return; }
@@ -3348,18 +3425,22 @@ document.getElementById('btn-compare').addEventListener('click', () => {
 function renderCompareTable() {
   const div = document.getElementById('compare-table');
   if (compareList.length === 0) { div.innerHTML = ''; return; }
+  const selectedYear = parseInt(document.getElementById('year-slider')?.value || '0', 10);
   let html = '<table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr style="border-bottom:1px solid #ddd;">';
-  html += '<th style="text-align:left;padding:4px;">Drug</th><th>CI Mean</th><th>Orphan</th><th>Scope Gap</th><th>UCs</th><th></th>';
+  html += `<th style="text-align:left;padding:4px;">Drug</th><th>CI (${selectedYear})</th><th>Weak CI % (static)</th><th>Scope Gap (${selectedYear})</th><th>UCs (${selectedYear})</th><th></th>`;
   html += '</tr></thead><tbody>';
   compareList.forEach((d, i) => {
     const ci = CI_INDEX[d.nda] || {};
-    const ts = d.trap_score;
+    const entry = getClosestTimelineEntry(d.nda, selectedYear);
+    const yearCI = entry && entry.ci != null ? entry.ci : ci.ci_mean;
+    const ts = entry && entry.ts != null ? entry.ts : d.trap_score;
+    const yearUCs = entry && entry.nuc != null ? entry.nuc : d.n_use_codes;
     html += `<tr style="border-bottom:1px solid #f0f0f0;">
       <td style="padding:4px;cursor:pointer;color:#0072B2;" data-select-nda="${d.nda}">${d.name}</td>
-      <td style="text-align:center;">${ci.ci_mean != null ? ci.ci_mean.toFixed(3) : '-'}</td>
-      <td style="text-align:center;">${ci.orphan_rate != null ? (ci.orphan_rate * 100).toFixed(0) + '%' : '-'}</td>
+      <td style="text-align:center;">${yearCI != null ? yearCI.toFixed(3) : '-'}</td>
+      <td style="text-align:center;" title="Static across years in current data">${ci.orphan_rate != null ? (ci.orphan_rate * 100).toFixed(0) + '%' : '-'}</td>
       <td style="text-align:center;">${ts != null ? (ts >= 0 ? '+' : '') + ts.toFixed(3) : '-'}</td>
-      <td style="text-align:center;">${d.n_use_codes || '-'}</td>
+      <td style="text-align:center;">${yearUCs || '-'}</td>
       <td style="text-align:center;cursor:pointer;color:#D55E00;" data-remove-compare="${i}">x</td>
     </tr>`;
   });
