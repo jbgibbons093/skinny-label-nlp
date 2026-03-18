@@ -1934,11 +1934,18 @@ function renderSimpleNetwork(nda, year) {
   const tooltip = document.getElementById('tooltip');
   node.on('mouseover', (e, d) => {
     let html = `<strong>${d.label}</strong>`;
-    if (d.type === 'usecode') {
+    if (d.type === 'drug') {
+      if (ciStats.ci_mean != null) html += `<div class="tt-label">Claim-Indication</div><div class="tt-sim" style="color:#0072B2">${ciStats.ci_mean.toFixed(3)}</div>`;
+      if (best.cu != null) html += `<div class="tt-label">Claim-UC</div><div class="tt-sim">${best.cu.toFixed(3)}</div>`;
+      if (best.iu != null) html += `<div class="tt-label">Ind-UC</div><div class="tt-sim">${best.iu.toFixed(3)}</div>`;
+      if (best.ts != null) {
+        html += `<div class="tt-label">Scope Gap</div><div class="tt-sim" style="color:${best.ts > 0 ? '#D55E00' : '#009E73'}">${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}</div>`;
+      }
+    } else if (d.type === 'usecode') {
       if (d.cu != null) html += `<div class="tt-label">Claim-UC</div><div class="tt-sim">${d.cu.toFixed(3)}</div>`;
       if (d.iu != null) html += `<div class="tt-label">Ind-UC</div><div class="tt-sim">${d.iu.toFixed(3)}</div>`;
       const diff = (d.cu || 0) - (d.iu || 0);
-      html += `<div class="tt-label">Gap</div><div class="tt-sim" style="color:${diff > 0 ? '#D55E00' : '#009E73'}">${diff >= 0 ? '+' : ''}${diff.toFixed(3)}</div>`;
+      html += `<div class="tt-label">Scope Gap</div><div class="tt-sim" style="color:${diff > 0 ? '#D55E00' : '#009E73'}">${diff >= 0 ? '+' : ''}${diff.toFixed(3)}</div>`;
     }
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
@@ -1955,10 +1962,15 @@ function renderSimpleNetwork(nda, year) {
   svg.append('text').attr('x', w - 12).attr('y', 24).attr('text-anchor', 'end')
     .attr('font-size', '16px').attr('font-weight', '700').attr('fill', '#0072B2')
     .text(`${best.y} | ${ucs.length} use codes`);
-  if (best.ts != null) {
+  if (ciStats.ci_mean != null) {
     svg.append('text').attr('x', w - 12).attr('y', 44).attr('text-anchor', 'end')
+      .attr('font-size', '13px').attr('fill', '#0072B2')
+      .text(`Claim-Ind: ${ciStats.ci_mean.toFixed(3)}`);
+  }
+  if (best.ts != null) {
+    svg.append('text').attr('x', w - 12).attr('y', ciStats.ci_mean != null ? 62 : 44).attr('text-anchor', 'end')
       .attr('font-size', '13px').attr('fill', best.ts >= 0 ? '#D55E00' : '#009E73')
-      .text(`Gap: ${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}`);
+      .text(`Scope Gap: ${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}`);
   }
   if (ciStats.ci_mean != null) {
     svg.append('text').attr('x', w - 12).attr('y', 62).attr('text-anchor', 'end')
