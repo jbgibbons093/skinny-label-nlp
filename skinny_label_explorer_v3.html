@@ -1079,7 +1079,6 @@ function updateSelectedOverview(nda) {
   const net = networkCache[nda] || null;
   const totalClaims = net && net.patents ? net.patents.reduce((s, p) => s + (p.claims ? p.claims.length : 0), 0) : null;
   const ciStats = getCIStats(nda, net);
-  const tl = DATA.timelines[nda] || [];
   const latestEntry = tl.length ? tl[tl.length - 1] : null;
   const ciMean = latestEntry && latestEntry.ci != null ? latestEntry.ci : (ciStats.ci_mean ?? null);
   const ciYear = latestEntry ? latestEntry.y : null;
