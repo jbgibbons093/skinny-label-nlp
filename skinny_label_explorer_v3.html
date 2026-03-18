@@ -1616,20 +1616,28 @@ function drawTrendChart() {
   drawLine(cuMean, '#D55E00');
   drawLine(iuMean, '#009E73');
 
-  // Claim-Indication average horizontal line (from CI_INDEX)
-  if (typeof CI_INDEX === 'object' && CI_INDEX) {
-    const ciVals = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
-    if (ciVals.length > 0) {
-      const avgCI = ciVals.reduce((a, b) => a + b, 0) / ciVals.length;
-      if (avgCI >= yMin && avgCI <= yMax) {
-        const ciY = yScale(avgCI);
-        ctx.beginPath(); ctx.strokeStyle = '#0072B2'; ctx.lineWidth = 2;
-        ctx.moveTo(pad.left, ciY); ctx.lineTo(w - pad.right, ciY);
-        ctx.stroke();
-        ctx.fillStyle = '#0072B2'; ctx.font = '10px Arial'; ctx.textAlign = 'right';
-        ctx.fillText(`Claim-Ind avg ${avgCI.toFixed(3)}`, w - pad.right, ciY - 4);
+  // Claim-Indication time-varying aggregate (computed from per-drug timelines)
+  const ciByYear = years.map(yr => {
+    const vals = [];
+    for (const nda in DATA.timelines) {
+      const tl = DATA.timelines[nda];
+      for (const entry of tl) {
+        if (entry.y === yr && entry.ci != null) { vals.push(entry.ci); break; }
       }
     }
+    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  });
+  const ciHasData = ciByYear.some(v => v !== null);
+  if (ciHasData) {
+    // Draw CI as a proper line, skipping years with no data
+    ctx.beginPath(); ctx.strokeStyle = '#0072B2'; ctx.lineWidth = 1.5;
+    let started = false;
+    ciByYear.forEach((v, i) => {
+      if (v == null) return;
+      const x = xScale(i), y = yScale(v);
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
   }
 
   // Trap on right axis
