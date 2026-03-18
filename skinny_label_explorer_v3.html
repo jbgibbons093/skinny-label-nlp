@@ -192,6 +192,7 @@
         <button class="active" data-tab="explorer" id="tab-explorer">Explorer</button>
         <button data-tab="aggregate" id="tab-aggregate">Aggregate</button>
         <button data-tab="directory" id="tab-directory">Drug Directory</button>
+        <button data-tab="validation" id="tab-validation">Validation</button>
         <button data-tab="about" id="tab-about">About & Methods</button>
       </div>
     </div>
@@ -504,6 +505,46 @@
             <tbody id="directory-body"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-validation">
+      <div class="card">
+        <h3>Construct Validation</h3>
+        <p class="info-text">We validated the embedding model by independently classifying 349 use-code-to-indication pairs across 20 drugs as <strong>Matched</strong> (use code describes an approved use), <strong>Partial</strong> (overlaps but extends beyond the indication), or <strong>Unmatched</strong> (describes something not in the indication). The cosine similarity was then tested for its ability to discriminate matched from non-matched pairs.</p>
+        <div class="detail-grid" style="grid-template-columns:repeat(4,1fr);margin-top:12px;">
+          <div class="detail-stat" style="border-left:4px solid #009E73;"><div class="label">AUC</div><div class="value" id="val-auc">-</div><div class="sub">Matched vs. non-matched</div></div>
+          <div class="detail-stat"><div class="label">Matched</div><div class="value" id="val-matched">-</div><div class="sub">UC clearly within indication</div></div>
+          <div class="detail-stat"><div class="label">Partial</div><div class="value" id="val-partial">-</div><div class="sub">Overlaps but extends beyond</div></div>
+          <div class="detail-stat"><div class="label">Unmatched</div><div class="value" id="val-unmatched">-</div><div class="sub">Not in indication</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Validation Pairs
+          <select id="val-drug-filter" style="font-size:12px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;margin-left:8px;">
+            <option value="all">All drugs</option>
+          </select>
+          <select id="val-label-filter" style="font-size:12px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;margin-left:4px;">
+            <option value="all">All labels</option>
+            <option value="MATCHED">Matched</option>
+            <option value="PARTIAL">Partial</option>
+            <option value="UNMATCHED">Unmatched</option>
+          </select>
+        </h3>
+        <div class="directory-table-wrap" style="max-height:600px;">
+          <table class="directory-table">
+            <thead><tr>
+              <th>Drug</th>
+              <th>Use Code</th>
+              <th>UC Description</th>
+              <th>Similarity</th>
+              <th>Label</th>
+              <th>Reasoning</th>
+            </tr></thead>
+            <tbody id="val-table-body"></tbody>
+          </table>
+        </div>
+        <div class="directory-meta" style="margin-top:8px;"><div id="val-meta">Loading...</div></div>
       </div>
     </div>
 
@@ -3493,6 +3534,62 @@ document.getElementById('btn-copy-link').addEventListener('click', () => {
     setTimeout(() => { btn.textContent = 'Copy Shareable Link'; }, 2000);
   });
 });
+
+// ======================================================================
+// Validation tab
+// ======================================================================
+let VAL_DATA = null;
+
+function loadValidation() {
+  fetch('validation.json').then(r => r.json()).then(data => {
+    VAL_DATA = data;
+    document.getElementById('val-auc').textContent = data.auc.toFixed(3);
+    document.getElementById('val-matched').textContent = data.counts.matched;
+    document.getElementById('val-partial').textContent = data.counts.partial;
+    document.getElementById('val-unmatched').textContent = data.counts.unmatched;
+
+    // Populate drug filter
+    const drugs = [...new Set(data.pairs.map(p => p.name))].sort();
+    const sel = document.getElementById('val-drug-filter');
+    drugs.forEach(d => { sel.innerHTML += `<option value="${d}">${d}</option>`; });
+
+    sel.addEventListener('change', renderValidationTable);
+    document.getElementById('val-label-filter').addEventListener('change', renderValidationTable);
+    renderValidationTable();
+  }).catch(e => {
+    document.getElementById('val-meta').textContent = 'Validation data not available: ' + e.message;
+  });
+}
+
+function renderValidationTable() {
+  if (!VAL_DATA) return;
+  const drugFilter = document.getElementById('val-drug-filter').value;
+  const labelFilter = document.getElementById('val-label-filter').value;
+
+  let rows = VAL_DATA.pairs;
+  if (drugFilter !== 'all') rows = rows.filter(p => p.name === drugFilter);
+  if (labelFilter !== 'all') rows = rows.filter(p => p.label === labelFilter);
+
+  const labelColor = { MATCHED: '#009E73', PARTIAL: '#E69F00', UNMATCHED: '#D55E00' };
+  const body = document.getElementById('val-table-body');
+  body.innerHTML = rows.map(p => `<tr>
+    <td><strong>${p.name}</strong><br><span style="color:#8a96a3;font-size:10px">${p.nda}</span></td>
+    <td>${p.uc}</td>
+    <td style="font-size:11px;max-width:300px;">${p.uc_desc}</td>
+    <td style="font-weight:700;">${p.sim.toFixed(3)}</td>
+    <td><span style="color:${labelColor[p.label] || '#666'};font-weight:700;">${p.label}</span></td>
+    <td style="font-size:11px;color:#5b6774;max-width:250px;">${p.reason}</td>
+  </tr>`).join('');
+
+  document.getElementById('val-meta').textContent = `Showing ${rows.length} of ${VAL_DATA.pairs.length} pairs`;
+}
+
+// Load validation when tab is first opened
+const origSetTab = setTab;
+setTab = function(tab) {
+  origSetTab(tab);
+  if (tab === 'validation' && !VAL_DATA) loadValidation();
+};
 
 </script>
 
