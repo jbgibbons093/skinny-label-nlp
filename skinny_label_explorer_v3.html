@@ -414,67 +414,6 @@
       </div>
     </div>
 
-    <div class="card">
-      <h3>About &amp; Methods</h3>
-      <p class="info-text">
-        This tool visualizes the semantic relationship between <strong>individual patent claims</strong>,
-        Orange Book use codes, and approved label indications for FDA-approved drugs.
-        <strong>Claim-indication similarity</strong> is now the headline measure of direct patent-label alignment,
-        while scope gap remains a secondary use-code-derived summary.
-      </p>
-      <div class="methods-toggle" id="methods-toggle" onclick="document.getElementById('methods-body').classList.toggle('open'); this.textContent = this.textContent.includes('+') ? '- Hide methods' : '+ Show methods'">+ Show methods</div>
-      <div class="methods-body" id="methods-body">
-        <h4>Three-Way Semantic Similarity</h4>
-        All text (patent claims, use code descriptions, label indications) is embedded with
-        <code>S-PubMedBert-MS-MARCO</code> (768-dim, biomedical domain). Cosine similarity in this shared
-        space measures semantic closeness. Three pairwise similarities are computed:
-        <ul style="margin:6px 0 6px 20px">
-          <li><strong>Claim &harr; Use Code:</strong> Does the patent's language match the use code description?</li>
-          <li><strong>Indication &harr; Use Code:</strong> Does the drug label's approved indication match the use code?</li>
-          <li><strong>Scope Gap:</strong> = Claim-UC similarity minus Indication-UC similarity. Positive = patent claims reach beyond label.</li>
-        </ul>
-
-        <h4>Scope Gap</h4>
-        At the edge level: <code>scope_gap = cosine_sim(claim, UC) - cosine_sim(indication, UC)</code><br>
-        Each claim-UC pair has its own scope gap. Positive = that claim semantically exceeds the label
-        for that use code. The NDA-level scope gap is a summary statistic (mean of per-edge gaps).
-        This is an exploratory measure; formal validation (AUC against manual mappings) is pending.
-
-        <h4>Similarity Floor</h4>
-        Biomedical embeddings have a floor at ~0.82 cosine similarity — even unrelated texts score this high.
-        The meaningful range is 0.82&ndash;1.0. Our threshold of 0.88 corresponds to the 10th percentile of
-        true indication&harr;use code matches. Edges below 0.88 are considered "unmatched."
-
-        <h4>Claim Selection</h4>
-        Only independent method-of-use claims are included (53,081 claims from 5,872 patents).
-        Dependent claims (175,580) are excluded — they are legally subordinate and rarely the
-        best semantic match for a use code. Including them slightly attenuates the scope gap
-        (mean 0.0086 vs 0.0097 independent-only) because they narrow toward specific indications
-        that also appear in the label.
-
-        <h4>Data Sources</h4>
-        <ul style="margin:6px 0 6px 20px">
-          <li>2,927 NDAs (1,966 with use codes, 961 control)</li>
-          <li>228,661 patent method-of-use claims</li>
-          <li>17,761 parsed label indications</li>
-          <li>4,421 FDA use code descriptions</li>
-          <li>Orange Book snapshots 1988&ndash;2024</li>
-        </ul>
-
-        <h4>Network Data</h4>
-        343,712 claim-UC edges (independent claims with cosine &ge; 0.88) across 1,913 NDAs.
-        Each edge includes a pre-computed scope gap (g = claim_sim - indication_sim).
-        Each use code includes its indication-UC similarity (iu) and UC-level scope gap (ug = max_claim - iu).
-
-        <h4>Limitations</h4>
-        <ul style="margin:6px 0 6px 20px">
-          <li>Validation against manual claim-UC mappings is pending (Phase 0)</li>
-          <li>Compressed similarity range (0.82&ndash;1.0) limits interpretability</li>
-          <li>234 of 1,966 treatment NDAs lack scope gap data (missing labels or parsing failures)</li>
-          <li>42 NDAs lack claim-level network data</li>
-        </ul>
-      </div>
-    </div>
     </div>
 
     <div class="tab-panel" id="panel-directory">
