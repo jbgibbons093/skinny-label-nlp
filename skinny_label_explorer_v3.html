@@ -200,13 +200,17 @@
     <div class="tab-panel" id="panel-aggregate">
       <div class="card">
         <h3>Dataset Overview</h3>
-        <div class="stat-grid">
-          <div class="stat"><div class="value" id="s-ndas">-</div><div class="label">Treatment NDAs</div></div>
-          <div class="stat"><div class="value" id="s-years">-</div><div class="label">Years</div></div>
+        <div class="stat-grid" style="grid-template-columns:repeat(4, minmax(0, 1fr));">
+          <div class="stat"><div class="value" id="s-ndas">-</div><div class="label">Treatment NDAs <span class="help-icon">?<span class="help-tip">NDAs with method-of-use patents and use codes. This is the main skinny-label cohort shown throughout the explorer and temporal panels.</span></span></div></div>
+          <div class="stat"><div class="value" id="s-control">-</div><div class="label">Control NDAs <span class="help-icon">?<span class="help-tip">NDAs with Orange Book patents but no method-of-use patents or use codes. They serve as a baseline for what claim-indication alignment looks like when there is no use-code-driven skinny-label dynamic.</span></span></div></div>
+          <div class="stat"><div class="value" id="s-years">-</div><div class="label">Years Covered <span class="help-icon">?<span class="help-tip">Calendar years represented in the treatment-group panel used for explorer timelines and aggregate trends.</span></span></div></div>
+          <div class="stat"><div class="value" id="s-ucobs">-</div><div class="label">UC-Year Obs <span class="help-icon">?<span class="help-tip">Total NDA x use code x year observations in the treatment-group panel. This is the longitudinal use-code footprint behind the year slider and aggregate trend lines.</span></span></div></div>
           <div class="stat"><div class="value" id="s-trap">-</div><div class="label" id="s-trap-label">Mean Claim-Ind</div></div>
-          <div class="stat"><div class="value" id="s-control">-</div><div class="label">Control NDAs</div></div>
+          <div class="stat"><div class="value" id="s-mean-gap">-</div><div class="label">Mean Scope Gap <span class="help-icon">?<span class="help-tip">Average NDA-level claim-UC minus indication-UC difference among drugs with available label/use-code data. Near zero means claims and labels cover use codes similarly on average.</span></span></div></div>
+          <div class="stat"><div class="value" id="s-ci-cover">-</div><div class="label">CI Coverage <span class="help-icon">?<span class="help-tip">Treatment NDAs with claim-indication summary data in the CI index. This is the denominator for the headline Claim-Indication statistics.</span></span></div></div>
+          <div class="stat"><div class="value" id="s-gap-cover">-</div><div class="label">Gap Coverage <span class="help-icon">?<span class="help-tip">Treatment NDAs with non-null scope gap data. Missing values usually reflect missing labels or parsing failures.</span></span></div></div>
         </div>
-        <div class="snapshot-foot" style="margin-top:12px;">Corpus-level counts and summary statistics for the full dataset. Use the panels below for year-specific aggregate behavior.</div>
+        <div class="snapshot-foot" id="dataset-overview-note" style="margin-top:12px;">Corpus-level counts and summary statistics for the full dataset. Use the panels below for year-specific aggregate behavior.</div>
       </div>
 
       <div class="panels">
@@ -1357,12 +1361,24 @@ function renderDirectory() {
 function init() {
   // Stats
   document.getElementById('s-ndas').textContent = DATA.stats.n_treatment.toLocaleString();
+  document.getElementById('s-control').textContent = DATA.stats.n_control.toLocaleString();
   document.getElementById('s-years').textContent = `${DATA.stats.year_range[0]}-${DATA.stats.year_range[1]}`;
   const ciValues = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
   const meanCi = ciValues.length ? ciValues.reduce((a, b) => a + b, 0) / ciValues.length : null;
+  const gapValues = DATA.drugs.map(d => d.trap_score).filter(v => v != null);
+  const meanGap = gapValues.length ? gapValues.reduce((a, b) => a + b, 0) / gapValues.length : null;
+  const totalUCObs = Object.values(DATA.timelines || {}).reduce((sum, tl) => {
+    return sum + (tl || []).reduce((sub, entry) => sub + (entry.nuc || 0), 0);
+  }, 0);
   document.getElementById('s-trap').textContent = meanCi != null ? meanCi.toFixed(3) : '-';
   document.getElementById('s-trap-label').textContent = `Mean CI (${ciValues.length.toLocaleString()} NDAs)`;
-  document.getElementById('s-control').textContent = DATA.stats.n_control.toLocaleString();
+  document.getElementById('s-mean-gap').textContent = meanGap != null ? `${meanGap >= 0 ? '+' : ''}${meanGap.toFixed(3)}` : '-';
+  document.getElementById('s-ci-cover').textContent = `${ciValues.length.toLocaleString()} / ${DATA.stats.n_treatment.toLocaleString()}`;
+  document.getElementById('s-gap-cover').textContent = `${gapValues.length.toLocaleString()} / ${DATA.stats.n_treatment.toLocaleString()}`;
+  document.getElementById('s-ucobs').textContent = totalUCObs.toLocaleString();
+  const missingGap = DATA.stats.n_treatment - gapValues.length;
+  const missingCI = DATA.stats.n_treatment - ciValues.length;
+  document.getElementById('dataset-overview-note').textContent = `Treatment NDAs are the main skinny-label cohort with use codes; control NDAs have patents but no method-of-use use-code listing and serve as a baseline. CI coverage is missing for ${missingCI.toLocaleString()} treatment NDAs; scope-gap coverage is missing for ${missingGap.toLocaleString()}.`;
 
   // Drug list
   currentFiltered = DATA.drugs;
