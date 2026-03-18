@@ -1965,28 +1965,22 @@ function renderSimpleNetwork(nda, year) {
   .on('mouseout', () => { tooltip.style.display = 'none'; });
 
   // Info overlay
-  svg.append('text').attr('x', w - 12).attr('y', 24).attr('text-anchor', 'end')
-    .attr('font-size', '16px').attr('font-weight', '700').attr('fill', '#0072B2')
+  let infoY = 24;
+  svg.append('text').attr('x', w - 12).attr('y', infoY).attr('text-anchor', 'end')
+    .attr('font-size', '15px').attr('font-weight', '700').attr('fill', '#0072B2')
     .text(`${best.y} | ${ucs.length} use codes`);
+  infoY += 18;
   if (ciStats.ci_mean != null) {
-    svg.append('text').attr('x', w - 12).attr('y', 44).attr('text-anchor', 'end')
-      .attr('font-size', '13px').attr('fill', '#0072B2')
+    svg.append('text').attr('x', w - 12).attr('y', infoY).attr('text-anchor', 'end')
+      .attr('font-size', '12px').attr('fill', '#0072B2')
       .text(`Claim-Ind: ${ciStats.ci_mean.toFixed(3)}`);
+    infoY += 16;
   }
   if (best.ts != null) {
-    svg.append('text').attr('x', w - 12).attr('y', ciStats.ci_mean != null ? 62 : 44).attr('text-anchor', 'end')
-      .attr('font-size', '13px').attr('fill', best.ts >= 0 ? '#D55E00' : '#009E73')
+    svg.append('text').attr('x', w - 12).attr('y', infoY).attr('text-anchor', 'end')
+      .attr('font-size', '12px').attr('fill', best.ts >= 0 ? '#D55E00' : '#009E73')
       .text(`Scope Gap: ${best.ts >= 0 ? '+' : ''}${best.ts.toFixed(3)}`);
-  }
-  if (ciStats.ci_mean != null) {
-    svg.append('text').attr('x', w - 12).attr('y', 62).attr('text-anchor', 'end')
-      .attr('font-size', '12px').attr('fill', '#0f766e')
-      .text(`Claim-Ind: ${ciStats.ci_mean.toFixed(3)}`);
-  }
-  if (ciStats.orphan_rate != null) {
-    svg.append('text').attr('x', w - 12).attr('y', 78).attr('text-anchor', 'end')
-      .attr('font-size', '11px').attr('fill', '#6b7280')
-      .text(`Orphan claims: ${(ciStats.orphan_rate * 100).toFixed(0)}%`);
+    infoY += 16;
   }
 
   sim.on('tick', () => {
