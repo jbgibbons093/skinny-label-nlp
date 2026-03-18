@@ -229,7 +229,7 @@
         <div class="snapshot-meta" id="agg-snapshot-meta">Select a year from the charts or timeline.</div>
         <div class="snapshot-row">
           <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="agg-ci">-</span></div>
-          <div class="snapshot-pill"><span class="label">Orphan Rate</span><span class="value" id="agg-orphan">-</span></div>
+          <div class="snapshot-pill"><span class="label">Weak CI Rate</span><span class="value" id="agg-orphan">-</span></div>
           <div class="snapshot-pill"><span class="label">Claim-UC</span><span class="value" id="agg-cu">-</span></div>
           <div class="snapshot-pill"><span class="label">Ind-UC</span><span class="value" id="agg-iu">-</span></div>
           <div class="snapshot-pill"><span class="label">NDAs</span><span class="value" id="agg-ndas">-</span></div>
@@ -363,7 +363,7 @@
             <option value="all">All claims</option>
             <option value="matched">Matched claims only</option>
             <option value="high">High CI only</option>
-            <option value="orphan">Orphan claims only</option>
+            <option value="orphan">Weak CI claims only</option>
           </select>
         </label>
         <div class="filter-field">
@@ -482,7 +482,7 @@
                 <th>Ingredient</th>
                 <th class="sortable" data-sort="ci_desc" style="cursor:pointer;">Claim-Ind &#x25BE;</th>
                 <th class="sortable" data-sort="uc_desc" style="cursor:pointer;">Use codes</th>
-                <th class="sortable" data-sort="orphan_desc" style="cursor:pointer;">Orphan %</th>
+                <th class="sortable" data-sort="orphan_desc" style="cursor:pointer;">Weak CI %</th>
                 <th class="sortable" data-sort="cu_desc" style="cursor:pointer;">Claim-UC</th>
                 <th class="sortable" data-sort="iu_desc" style="cursor:pointer;">Ind-UC</th>
                 <th class="sortable" data-sort="year_desc" style="cursor:pointer;">Year</th>
@@ -534,7 +534,7 @@
         <div class="stack">
           <div class="card">
             <h3>Three Similarity Pairs</h3>
-            <p class="info-text"><strong>Claim &harr; Indication (Primary).</strong> Does the patent claim cover what the drug is actually approved for? A high score means the claim and approved indication describe semantically similar therapeutic uses. A low score means the claim covers territory not in the label &mdash; an "orphan claim." This is the most direct measure of patent-label alignment and the primary result of this analysis.</p>
+            <p class="info-text"><strong>Claim &harr; Indication (Primary).</strong> Does the patent claim cover what the drug is actually approved for? A high score means the claim and approved indication describe semantically similar therapeutic uses. A low score means the claim covers territory not well-represented in the label (weak CI alignment). This is the most direct measure of patent-label alignment and the primary result of this analysis.</p>
             <p class="info-text" style="margin-top:8px"><strong>Claim &harr; Use Code.</strong> Does the patent claim match the use code description listed in the Orange Book? Since use codes are the mechanism through which patents are linked to drug applications, this measures whether the patent's legal language aligns with its stated regulatory purpose.</p>
             <p class="info-text" style="margin-top:8px"><strong>Indication &harr; Use Code.</strong> Does the drug's approved indication match the use code? When this is low, a use code exists without a corresponding approved indication &mdash; a potential "phantom" use code that may block generic entry without corresponding to a real therapeutic use.</p>
             <p class="info-text" style="margin-top:8px"><strong>Scope Gap = Claim-UC minus Indication-UC.</strong> A secondary, derived measure. When positive, patent claims semantically exceed what the label covers for that use code. When negative, the label covers the use code better than the claims do.</p>
@@ -590,6 +590,27 @@
 <div class="tooltip" id="tooltip" style="display:none"></div>
 
 <script>
+// ======================================================================
+// Config — centralized thresholds and labels
+// ======================================================================
+const CFG = {
+  SIM_THRESHOLD: 0.88,        // below this = weak alignment
+  CI_BANDS: { strong: 0.92, moderate: 0.88 },
+  LABELS: {
+    ci: 'Claim-Indication',
+    cu: 'Claim-UC',
+    iu: 'Indication-UC',
+    gap: 'Scope Gap',
+  },
+};
+
+function ciLabel(val) {
+  if (val == null) return '-';
+  if (val >= CFG.CI_BANDS.strong) return 'Strong';
+  if (val >= CFG.CI_BANDS.moderate) return 'Moderate';
+  return 'Weak';
+}
+
 // ======================================================================
 // Data & State
 // ======================================================================
@@ -847,7 +868,7 @@ function refreshAdvancedFilterUI(nda, year, net) {
 
   const parts = [];
   if (advancedFilters.ciStatus !== 'all') {
-    const labels = { matched: 'CI matched', high: 'High CI', orphan: 'Orphan claims' };
+    const labels = { matched: 'CI matched', high: 'High CI', orphan: 'Weak CI claims' };
     parts.push(labels[advancedFilters.ciStatus] || advancedFilters.ciStatus);
   }
   if (advancedFilters.useCodes.size > 0) parts.push(`${advancedFilters.useCodes.size} UCs`);
@@ -964,9 +985,9 @@ function applyAdvancedFilters(net, yearCtx, forceAllEdges) {
     // Apply sparse threshold for network/sankey (heatmap passes forceAllEdges=true)
     if (sparseThresh > 0 && e.s < sparseThresh) return false;
     const ci = yearCtx.ciByClaim[e.c] || null;
-    if (advancedFilters.ciStatus === 'matched' && !(ci && ci.ci >= 0.88)) return false;
-    if (advancedFilters.ciStatus === 'orphan' && !(ci && ci.ci < 0.88)) return false;
-    if (advancedFilters.ciStatus === 'high' && !(ci && ci.ci != null && ci.ci >= 0.92)) return false;
+    if (advancedFilters.ciStatus === 'matched' && !(ci && ci.ci >= CFG.SIM_THRESHOLD)) return false;
+    if (advancedFilters.ciStatus === 'orphan' && !(ci && ci.ci < CFG.SIM_THRESHOLD)) return false;
+    if (advancedFilters.ciStatus === 'high' && !(ci && ci.ci != null && ci.ci >= CFG.CI_BANDS.strong)) return false;
     const pat = yearCtx.claimToPat[e.c];
     if (selectedPats.size > 0 && !selectedPats.has(pat)) return false;
     return true;
@@ -1075,7 +1096,7 @@ function updateSelectedOverview(nda) {
     }
   }
   document.getElementById('d-ci-sub').textContent = ciMean != null
-    ? (ciMean >= 0.92 ? 'Strong' : ciMean >= 0.88 ? 'Moderate' : 'Weak') + pctile
+    ? ciLabel(ciMean) + pctile
     : '-';
   const el_cu = document.getElementById('d-cu');
   const el_iu = document.getElementById('d-iu');
@@ -1134,8 +1155,8 @@ function renderDirectory() {
     if (q && !text.includes(q)) return false;
     if (family !== 'all' && !tokenizeIngredient(d.ingredient).includes(family)) return false;
     if (ingredientQ && !(d.ingredient || '').toLowerCase().includes(ingredientQ) && !(d.name || '').toLowerCase().includes(ingredientQ)) return false;
-    if (gapSign === 'positive' && !(ciMean != null && ciMean >= 0.92)) return false;
-    if (gapSign === 'negative' && !(ciMean != null && ciMean < 0.88)) return false;
+    if (gapSign === 'positive' && !(ciMean != null && ciMean >= CFG.CI_BANDS.strong)) return false;
+    if (gapSign === 'negative' && !(ciMean != null && ciMean < CFG.SIM_THRESHOLD)) return false;
     if (gapSign === 'missing' && ciMean != null) return false;
     if (ucMin !== 'all' && (d.n_use_codes || 0) < parseInt(ucMin)) return false;
     if (networkFilter === 'loaded' && !networkMeta.hasNetwork) return false;
@@ -1177,7 +1198,7 @@ function renderDirectory() {
       <td>${d.ingredient || '-'}</td>
       <td style="font-weight:700;color:${(() => {
         const ci = getCIStats(d.nda).ci_mean;
-        return ci == null ? '#8a96a3' : ci >= 0.92 ? '#0f766e' : ci >= 0.88 ? '#2563eb' : '#D55E00';
+        return ci == null ? '#8a96a3' : ci >= CFG.CI_BANDS.strong ? '#0f766e' : ci >= CFG.SIM_THRESHOLD ? '#2563eb' : '#D55E00';
       })()}">${(() => {
         const ci = getCIStats(d.nda).ci_mean;
         return ci != null ? ci.toFixed(3) : '-';
@@ -1449,7 +1470,7 @@ function renderDrugList(drugs, reset) {
     div.dataset.nda = d.nda;
     div.onclick = () => selectDrug(d.nda);
     const ci = getCIStats(d.nda).ci_mean ?? null;
-    const cls = ci != null && ci >= 0.92 ? 'positive' : ci != null && ci < 0.88 ? 'negative' : '';
+    const cls = ci != null && ci >= CFG.CI_BANDS.strong ? 'positive' : ci != null && ci < CFG.SIM_THRESHOLD ? 'negative' : '';
     const ciText = ci != null ? ci.toFixed(3) : 'Load';
     const ingredientText = (d.ingredient || '-').substring(0, 30);
     div.innerHTML = `<strong>${d.name}</strong> <span style="color:#999">(${d.nda})</span><br>
@@ -2998,7 +3019,7 @@ function updateOrphanPanel(nda, net) {
   }
   // Sort by CI ascending — lowest alignment first (most "orphan-like")
   const sorted = [...net.ci_claims].sort((a, b) => a.ci - b.ci);
-  const lowCI = sorted.filter(c => c.ci < 0.88);
+  const lowCI = sorted.filter(c => c.ci < CFG.SIM_THRESHOLD);
   const claimText = {};
   net.patents.forEach(p => p.claims.forEach(c => { claimText[c.id] = { text: c.text, patent: p.pat }; }));
 
@@ -3012,8 +3033,8 @@ function updateOrphanPanel(nda, net) {
   const toShow = sorted.slice(0, Math.min(10, sorted.length));
   html += toShow.map(o => {
     const info = claimText[o.c] || {};
-    const color = o.ci < 0.85 ? '#D55E00' : o.ci < 0.88 ? '#E69F00' : '#009E73';
-    const bg = o.ci < 0.88 ? '#fef2f2' : '#f0faf5';
+    const color = o.ci < 0.85 ? '#D55E00' : o.ci < CFG.SIM_THRESHOLD ? '#E69F00' : '#009E73';
+    const bg = o.ci < CFG.SIM_THRESHOLD ? '#fef2f2' : '#f0faf5';
     return `<div style="margin-bottom:5px;padding:6px;background:${bg};border-radius:4px;border-left:3px solid ${color};">
       <div style="font-size:10px;color:#888;">Pat ${info.patent || '?'} | CI: <strong style="color:${color}">${o.ci.toFixed(3)}</strong></div>
       <div style="font-size:11px;color:#666;">${info.text || o.c}</div>
