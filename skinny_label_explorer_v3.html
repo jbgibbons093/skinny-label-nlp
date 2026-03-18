@@ -1493,7 +1493,18 @@ function selectDrug(nda) {
   const cachedNet = networkCache[nda] || null;
   updateIndicationPanel(nda, cachedNet);
   updateOrphanPanel(nda, cachedNet);
-  drawCIDistribution(); // update selected drug marker
+  drawCIDistribution();
+
+  // Always load network in background for indication/orphan panels
+  if (!cachedNet && networkIndex && networkIndex[nda]) {
+    loadNetwork(nda).then(net => {
+      if (net && selectedDrug === nda) {
+        updateIndicationPanel(nda, net);
+        updateOrphanPanel(nda, net);
+        updateSelectedOverview(nda);
+      }
+    });
+  }
 
   // Set slider range to drug's actual years
   const tl = DATA.timelines[nda];
