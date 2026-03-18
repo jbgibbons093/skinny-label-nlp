@@ -211,7 +211,7 @@
       <div class="panels">
         <div class="card">
           <h3>Aggregate Temporal Trends
-            <span class="help-icon">?<span class="help-tip">Shows how claim-UC similarity (red), indication-UC similarity (green), and scope gap (purple dashed) have evolved across all drugs from 1988-2024. The blue dashed line shows the average claim-indication similarity. Vertical lines mark GSK v. Teva (2021) and Amarin v. Hikma (2024).</span></span>
+            <span class="help-icon">?<span class="help-tip">Shows how claim-UC similarity (red), indication-UC similarity (green), scope gap (purple dashed), and claim-indication similarity (blue) evolve across all drugs from 1988-2024. The blue line is computed from NDA-year claim-indication values where available. Vertical lines mark GSK v. Teva (2021) and Amarin v. Hikma (2024).</span></span>
           </h3>
           <canvas id="trend-chart"></canvas>
           <div class="chart-note" id="trend-note">Hover for year-level detail. Click a year to sync the explorer timeline.</div>
@@ -294,7 +294,7 @@
 
     <div class="card">
       <h3>Drug Similarity Trajectory: <span id="drug-title">Select a drug</span>
-        <span class="help-icon">?<span class="help-tip">Year-by-year use-code relationships. Red = Claim-UC, Green = Ind-UC, Purple = Scope Gap. The blue horizontal line shows this drug's claim-indication mean.</span></span>
+        <span class="help-icon">?<span class="help-tip">Year-by-year relationships for the selected drug. Red = Claim-UC, Green = Ind-UC, Purple = Scope Gap, Blue = Claim-Indication. When yearly CI is available, the blue series varies over time; otherwise it falls back to the drug-level mean.</span></span>
       </h3>
       <canvas id="drug-chart"></canvas>
       <div class="legend">
@@ -560,10 +560,10 @@
             <h3>How To Use This Tool</h3>
             <p class="info-text" style="margin-bottom:10px">This explorer is designed for iterative investigation. Start broad, then drill down.</p>
             <p class="info-text"><strong>1. Pick a drug</strong> from the sidebar (sorted by number of use codes) or search by name, NDA number, or ingredient. The overview card immediately shows claim-indication alignment, scope gap, and use code count.</p>
-            <p class="info-text" style="margin-top:6px"><strong>2. Read the trajectory chart</strong> to see how this drug's claim-UC and indication-UC similarities evolved over its Orange Book lifetime. The blue dashed line is the claim-indication mean &mdash; a static measure of how well the patent portfolio matches the label overall.</p>
+            <p class="info-text" style="margin-top:6px"><strong>2. Read the trajectory chart</strong> to see how this drug's claim-UC, indication-UC, scope gap, and claim-indication values evolve over its Orange Book lifetime. The blue CI series is year-varying when timeline data are available and otherwise falls back to the drug-level mean.</p>
             <p class="info-text" style="margin-top:6px"><strong>3. Switch views</strong> to examine different aspects. <em>Simple</em> shows the use code star graph. <em>Network</em> reveals individual claim-UC connections. <em>Heatmap</em> provides the most analytical view &mdash; switch the dropdown between Claim-Indication, Scope Gap, Claim-UC, and Ind-UC to see different similarity dimensions. <em>Sankey</em> shows the flow from patents through claims to use codes.</p>
             <p class="info-text" style="margin-top:6px"><strong>4. Use the year slider</strong> (or press Play) to watch the patent portfolio evolve. Use codes appear and disappear as patents are listed and delisted from the Orange Book. The filters below let you isolate specific patents, use codes, or claim types.</p>
-            <p class="info-text" style="margin-top:6px"><strong>5. Click nodes</strong> in Network or Sankey views to filter to that patent or use code. Click the background to reset. The heatmap shows all pairwise values without filtering.</p>
+            <p class="info-text" style="margin-top:6px"><strong>5. Click nodes</strong> in Network or Sankey views to filter to that patent or use code. Click the background to reset. The heatmap preserves the current year and advanced filters, then shows all pairwise values within that filtered slice.</p>
             <p class="info-text" style="margin-top:6px"><strong>6. Compare drugs</strong> using the batch comparison tool (under Tools) or the Drug Directory tab. Export data as CSV or heatmaps as PNG. Share specific views via the Copy Link button.</p>
           </div>
         </div>
@@ -705,6 +705,12 @@ function getClosestTimelineEntry(nda, year) {
     if (Math.abs(entry.y - year) < Math.abs(best.y - year)) best = entry;
   }
   return best;
+}
+
+function getExactTimelineEntry(nda, year) {
+  const tl = DATA && DATA.timelines ? DATA.timelines[nda] : null;
+  if (!tl || tl.length === 0) return null;
+  return tl.find(entry => entry.y === year) || null;
 }
 
 function getClosestAggregateYear(year) {
@@ -1072,26 +1078,40 @@ function formatGap(ts) {
   return ts == null ? 'N/A' : `${ts >= 0 ? '+' : ''}${ts.toFixed(3)}`;
 }
 
-function updateSelectedOverview(nda) {
+function updateSelectedOverview(nda, yearOverride = null) {
   const drug = DATA.drugs.find(d => d.nda === nda);
   if (!drug) return;
   const tl = DATA.timelines[nda] || [];
   const net = networkCache[nda] || null;
   const totalClaims = net && net.patents ? net.patents.reduce((s, p) => s + (p.claims ? p.claims.length : 0), 0) : null;
   const ciStats = getCIStats(nda, net);
+  const selectedYear = yearOverride != null
+    ? yearOverride
+    : parseInt(document.getElementById('year-slider')?.value || '0', 10);
+  const bestEntry = selectedYear ? getClosestTimelineEntry(nda, selectedYear) : null;
   const latestEntry = tl.length ? tl[tl.length - 1] : null;
-  const ciMean = latestEntry && latestEntry.ci != null ? latestEntry.ci : (ciStats.ci_mean ?? null);
-  const ciYear = latestEntry ? latestEntry.y : null;
+  const activeEntry = bestEntry || latestEntry;
+  const ciMean = activeEntry && activeEntry.ci != null ? activeEntry.ci : (ciStats.ci_mean ?? null);
+  const ciYear = activeEntry ? activeEntry.y : null;
+  const cuVal = activeEntry && activeEntry.cu != null ? activeEntry.cu : drug.claim_uc;
+  const iuVal = activeEntry && activeEntry.iu != null ? activeEntry.iu : drug.ind_uc;
+  const gapVal = activeEntry && activeEntry.ts != null ? activeEntry.ts : drug.trap_score;
+  const activeUCCount = activeEntry && activeEntry.nuc != null ? activeEntry.nuc : drug.n_use_codes;
 
   document.getElementById('d-name').textContent = `${drug.name} (${drug.nda})`;
   document.getElementById('d-ingredient').textContent = drug.ingredient || '-';
   document.getElementById('d-ci').textContent = ciMean != null ? ciMean.toFixed(3) : '-';
   let pctile = '';
   if (ciMean != null) {
-    const allCI = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
-    if (allCI.length > 0) {
-      const below = allCI.filter(v => v < ciMean).length;
-      pctile = ` | ${Math.round(100 * below / allCI.length)}th pctile`;
+    const ciPool = ciYear != null
+      ? Object.values(DATA.timelines)
+          .map(tlRow => (tlRow || []).find(entry => entry.y === ciYear))
+          .map(entry => entry && entry.ci != null ? entry.ci : null)
+          .filter(v => v != null)
+      : Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
+    if (ciPool.length > 0) {
+      const below = ciPool.filter(v => v < ciMean).length;
+      pctile = ` | ${Math.round(100 * below / ciPool.length)}th pctile`;
     }
   }
   document.getElementById('d-ci-sub').textContent = ciMean != null
@@ -1099,17 +1119,24 @@ function updateSelectedOverview(nda) {
     : '-';
   const el_cu = document.getElementById('d-cu');
   const el_iu = document.getElementById('d-iu');
-  if (el_cu) el_cu.textContent = drug.claim_uc != null ? drug.claim_uc.toFixed(3) : '-';
-  if (el_iu) el_iu.textContent = drug.ind_uc != null ? drug.ind_uc.toFixed(3) : '-';
-  document.getElementById('d-gap').textContent = formatGap(drug.trap_score);
+  if (el_cu) el_cu.textContent = cuVal != null ? cuVal.toFixed(3) : '-';
+  if (el_iu) el_iu.textContent = iuVal != null ? iuVal.toFixed(3) : '-';
+  document.getElementById('d-gap').textContent = formatGap(gapVal);
   let gapPctile = '';
-  if (drug.trap_score != null) {
-    const allGap = DATA.drugs.map(d => d.trap_score).filter(v => v != null);
-    const belowGap = allGap.filter(v => v < drug.trap_score).length;
-    gapPctile = ` | ${Math.round(100 * belowGap / allGap.length)}th pctile`;
+  if (gapVal != null) {
+    const gapPool = ciYear != null
+      ? Object.values(DATA.timelines)
+          .map(tlRow => (tlRow || []).find(entry => entry.y === ciYear))
+          .map(entry => entry && entry.ts != null ? entry.ts : null)
+          .filter(v => v != null)
+      : DATA.drugs.map(d => d.trap_score).filter(v => v != null);
+    if (gapPool.length > 0) {
+      const belowGap = gapPool.filter(v => v < gapVal).length;
+      gapPctile = ` | ${Math.round(100 * belowGap / gapPool.length)}th pctile`;
+    }
   }
-  document.getElementById('d-gap-sub').textContent = `Year ${drug.ob_year ?? 'N/A'}${gapPctile}`;
-  document.getElementById('d-ucs').textContent = drug.n_use_codes != null ? `${drug.n_use_codes} UCs` : '-';
+  document.getElementById('d-gap-sub').textContent = `Year ${ciYear ?? drug.ob_year ?? 'N/A'}${gapPctile}`;
+  document.getElementById('d-ucs').textContent = activeUCCount != null ? `${activeUCCount} UCs` : '-';
   document.getElementById('d-claims').textContent = totalClaims != null ? `${totalClaims} claims` : '-';
 }
 
@@ -1129,16 +1156,27 @@ function updateSnapshotCards() {
   const orphanValues = Object.values(CI_INDEX).map(v => v.orphan_rate).filter(v => v != null);
   const aggCiMean = ciValues.length ? ciValues.reduce((a, b) => a + b, 0) / ciValues.length : null;
   const aggOrphanMean = orphanValues.length ? orphanValues.reduce((a, b) => a + b, 0) / orphanValues.length : null;
+  const ciByYear = {};
+  for (const nda in DATA.timelines) {
+    const tl = DATA.timelines[nda] || [];
+    for (const entry of tl) {
+      if (entry.ci == null) continue;
+      (ciByYear[entry.y] = ciByYear[entry.y] || []).push(entry.ci);
+    }
+  }
+  const aggYearCI = agg && ciByYear[agg.y] && ciByYear[agg.y].length
+    ? ciByYear[agg.y].reduce((a, b) => a + b, 0) / ciByYear[agg.y].length
+    : null;
   document.getElementById('agg-snapshot-meta').textContent = agg
     ? `Closest aggregate year: ${agg.y}`
     : 'Aggregate trend data unavailable';
-  document.getElementById('agg-ci').textContent = aggCiMean != null ? aggCiMean.toFixed(3) : '-';
+  document.getElementById('agg-ci').textContent = (aggYearCI ?? aggCiMean) != null ? (aggYearCI ?? aggCiMean).toFixed(3) : '-';
   document.getElementById('agg-orphan').textContent = aggOrphanMean != null ? `${(aggOrphanMean * 100).toFixed(0)}%` : '-';
   document.getElementById('agg-cu').textContent = agg && agg.cu != null ? agg.cu.toFixed(3) : '-';
   document.getElementById('agg-iu').textContent = agg && agg.iu != null ? agg.iu.toFixed(3) : '-';
   document.getElementById('agg-ndas').textContent = agg && agg.n != null ? agg.n.toLocaleString() : '-';
   document.getElementById('agg-foot').textContent = agg
-    ? `Mean claim-indication across indexed NDAs is ${aggCiMean != null ? aggCiMean.toFixed(3) : 'N/A'}; the year chart remains use-code based for ${agg.y}.`
+    ? `Claim-indication for indexed NDAs in ${agg.y} is ${(aggYearCI ?? aggCiMean) != null ? (aggYearCI ?? aggCiMean).toFixed(3) : 'N/A'}; weak CI rate remains static because orphan data are not stored by year.`
     : 'Temporal trends are interactive: click a year to sync the explorer below.';
 
   // Drug-year snapshot removed — info now in Selected Drug Overview
@@ -1531,7 +1569,7 @@ function selectDrug(nda) {
       if (net && selectedDrug === nda) {
         updateIndicationPanel(nda, net);
         updateOrphanPanel(nda, net);
-        updateSelectedOverview(nda);
+        updateSelectedOverview(nda, parseInt(document.getElementById('year-slider')?.value || '0', 10));
       }
     });
   }
@@ -1560,6 +1598,7 @@ function syncYear(year) {
   document.getElementById('year-label').textContent = year;
   drawTrendChart();
   if (selectedDrug) {
+    updateSelectedOverview(selectedDrug, parseInt(year, 10));
     drawDrugChart(selectedDrug);
     renderNetwork(selectedDrug, parseInt(year, 10));
   }
@@ -1837,8 +1876,9 @@ function drawDrugChart(nda) {
     const row = tl[idx];
     if (!row) return;
     const ciStats = getCIStats(nda);
+    const yearCI = row.ci ?? ciStats.ci_mean;
     const tooltip = document.getElementById('tooltip');
-    tooltip.innerHTML = `<strong>${drug ? drug.name : nda} | ${row.y}</strong><div class="tt-label">Claim-Indication</div><div>${ciStats.ci_mean != null ? ciStats.ci_mean.toFixed(3) : 'N/A'}</div><div class="tt-label">Orphan claims</div><div>${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'}</div><div class="tt-label">Claim-UC</div><div>${row.cu != null ? row.cu.toFixed(3) : 'N/A'}</div><div class="tt-label">Indication-UC</div><div>${row.iu != null ? row.iu.toFixed(3) : 'N/A'}</div><div class="tt-label">Scope gap</div><div>${row.ts != null ? row.ts.toFixed(3) : 'N/A'}</div><div class="tt-label">Use codes / patents</div><div>${row.nuc ?? '-'} / ${row.np ?? '-'}</div>`;
+    tooltip.innerHTML = `<strong>${drug ? drug.name : nda} | ${row.y}</strong><div class="tt-label">Claim-Indication</div><div>${yearCI != null ? yearCI.toFixed(3) : 'N/A'}</div><div class="tt-label">Orphan claims</div><div>${ciStats.orphan_rate != null ? (ciStats.orphan_rate * 100).toFixed(0) + '%' : 'N/A'}</div><div class="tt-label">Claim-UC</div><div>${row.cu != null ? row.cu.toFixed(3) : 'N/A'}</div><div class="tt-label">Indication-UC</div><div>${row.iu != null ? row.iu.toFixed(3) : 'N/A'}</div><div class="tt-label">Scope gap</div><div>${row.ts != null ? row.ts.toFixed(3) : 'N/A'}</div><div class="tt-label">Use codes / patents</div><div>${row.nuc ?? '-'} / ${row.np ?? '-'}</div>`;
     tooltip.style.display = 'block';
     tooltip.style.left = (e.pageX + 14) + 'px';
     tooltip.style.top = (e.pageY - 14) + 'px';
@@ -2731,16 +2771,33 @@ function renderHeatmap(nda, year, net) {
   if (best) (best.ucs || []).forEach(u => { indUCmap[u.c] = u.iu; });
 
   // Filter edges — heatmap shows ALL edges (no sparse threshold)
-  let filteredEdges = yearCtx ? applyAdvancedFilters(net, yearCtx, true) : net.edges;
+  const filteredEdges = yearCtx ? applyAdvancedFilters(net, yearCtx, true) : net.edges;
+  const getIndicationYear = ind => {
+    const raw = ind && ind.date ? String(ind.date) : '';
+    const match = raw.match(/(19|20)\d{2}/);
+    return match ? parseInt(match[0], 10) : null;
+  };
+  const allowedClaimIds = new Set(filteredEdges.map(e => e.c));
+  const visibleIndications = isClaimInd
+    ? (net.indications || []).filter(ind => {
+        if (!best) return true;
+        const indYear = getIndicationYear(ind);
+        return indYear == null || indYear <= best.y;
+      })
+    : [];
+  const visibleIndicationIds = new Set(visibleIndications.map(ind => ind.id));
+  const visibleCIEdges = isClaimInd
+    ? (net.ci_edges || []).filter(e => visibleIndicationIds.has(e.i) && allowedClaimIds.has(e.c))
+    : [];
 
   // Get unique claims and UCs
   const claimIds = isClaimInd
-    ? [...new Set((net.ci_claims || []).map(c => c.c))]
+    ? [...new Set((net.ci_claims || []).map(c => c.c).filter(cid => allowedClaimIds.has(cid)))]
     : [...new Set(filteredEdges.map(e => e.c))];
   const ucCodes = isClaimInd
     ? []
     : [...new Set(filteredEdges.map(e => e.u))];
-  if (claimIds.length === 0 || (!isClaimInd && ucCodes.length === 0)) {
+  if (claimIds.length === 0 || (isClaimInd && visibleIndications.length === 0) || (!isClaimInd && ucCodes.length === 0)) {
     const canvas = document.getElementById('heatmap-canvas');
     const ctx = canvas.getContext('2d');
     canvas.width = 800;
@@ -2783,10 +2840,10 @@ function renderHeatmap(nda, year, net) {
   });
 
   // Determine columns based on mode
-  let colLabels, colCount;
+  let colLabels, colCount, colIndications = null;
   if (isClaimInd) {
-    const indications = net.indications || [];
-    colLabels = indications.map(ind => ind.date || ind.id);
+    colIndications = visibleIndications;
+    colLabels = colIndications.map(ind => ind.date || ind.id);
     colCount = colLabels.length;
   } else {
     colLabels = ucCodes;
@@ -2797,18 +2854,19 @@ function renderHeatmap(nda, year, net) {
     const ctx2 = canvas2.getContext('2d');
     canvas2.width = 400; canvas2.height = 100;
     ctx2.fillStyle = '#999'; ctx2.font = '13px Arial'; ctx2.textAlign = 'center';
-    ctx2.fillText(isClaimInd ? 'No indication data for this drug' : 'No data', 200, 50);
+    ctx2.fillText(isClaimInd ? `No indication data visible for ${best ? best.y : 'this selection'}` : 'No data', 200, 50);
     return;
   }
 
   const hmCI = (best ? best.ci : null) ?? ciStats.ci_mean ?? null;
+  const heatmapEdgeCount = isClaimInd ? visibleCIEdges.length : filteredEdges.length;
   document.getElementById('filter-summary').textContent =
-    `CI ${hmCI != null ? hmCI.toFixed(3) : 'N/A'}${best ? ' (' + best.y + ')' : ''} | ${claimIds.length} claims | ${colCount} ${isClaimInd ? 'indications' : 'UCs'} | ${filteredEdges.length} edges`;
+    `CI ${hmCI != null ? hmCI.toFixed(3) : 'N/A'}${best ? ' (' + best.y + ')' : ''} | ${claimIds.length} claims | ${colCount} ${isClaimInd ? 'indications' : 'UCs'} | ${heatmapEdgeCount} edges`;
 
   // Build CI edge map for claim-indication mode
   const ciEdgeMap = {};
-  if (isClaimInd && net.ci_edges) {
-    net.ci_edges.forEach(e => { ciEdgeMap[e.c + '|' + e.i] = e.s; });
+  if (isClaimInd) {
+    visibleCIEdges.forEach(e => { ciEdgeMap[e.c + '|' + e.i] = e.s; });
   }
 
   const modeTitles = {
@@ -2888,7 +2946,7 @@ function renderHeatmap(nda, year, net) {
 
       if (isClaimInd) {
         // Claim-Indication mode: lookup from ci_edges
-        const indId = net.indications[j].id;
+        const indId = colIndications[j].id;
         cellVal = ciEdgeMap[cid + '|' + indId] ?? null;
         cellColor = simColor(cellVal);
       } else if (heatmapMode === 'gap') {
@@ -2961,7 +3019,7 @@ function renderHeatmap(nda, year, net) {
 
       if (isClaimInd) {
         // Claim-Indication heatmap: columns are indication dates
-        const ind = (net.indications || [])[col];
+        const ind = (colIndications || [])[col];
         const indId = ind ? ind.id : '';
         const ciSim = ciEdgeMap[cid + '|' + indId] ?? null;
 
@@ -3102,8 +3160,8 @@ function updateURL() {
   const params = new URLSearchParams();
   params.set('nda', selectedDrug);
   params.set('view', currentView);
-  const hmBtn = document.querySelector('.hm-mode.active');
-  if (currentView === 'heatmap' && hmBtn) params.set('mode', hmBtn.dataset.mode);
+  const hmMode = document.getElementById('heatmap-mode-select');
+  if (currentView === 'heatmap' && hmMode) params.set('mode', hmMode.value);
   const yr = document.getElementById('year-slider').value;
   params.set('year', yr);
   history.replaceState(null, '', '?' + params.toString());
@@ -3119,9 +3177,8 @@ function loadFromURL() {
     setView(view);
   }
   if (mode) {
-    document.querySelectorAll('.hm-mode').forEach(b => {
-      b.classList.toggle('active', b.dataset.mode === mode);
-    });
+    const hmMode = document.getElementById('heatmap-mode-select');
+    if (hmMode) hmMode.value = mode;
   }
   if (year) {
     document.getElementById('year-slider').value = year;
@@ -3146,27 +3203,51 @@ function drawCIDistribution() {
   ctx.clearRect(0, 0, w, h);
 
   const measure = document.getElementById('dist-measure')?.value || 'ci';
+  const selectedYear = parseInt(document.getElementById('year-slider')?.value || '0', 10);
 
   // Get values based on selected measure
-  let vals = [], selectedVal = null, label = '', color = '#0072B2';
+  let vals = [], selectedVal = null, label = '', color = '#0072B2', dataNote = '';
   const drug = selectedDrug ? DATA.drugs.find(d => d.nda === selectedDrug) : null;
+  const selectedEntry = selectedDrug ? getClosestTimelineEntry(selectedDrug, selectedYear) : null;
 
   if (measure === 'ci') {
-    vals = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
-    selectedVal = selectedDrug && CI_INDEX[selectedDrug] ? CI_INDEX[selectedDrug].ci_mean : null;
+    vals = Object.keys(DATA.timelines || {})
+      .map(nda => getExactTimelineEntry(nda, selectedYear))
+      .map(entry => entry && entry.ci != null ? entry.ci : null)
+      .filter(v => v != null);
+    if (vals.length === 0) vals = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
+    selectedVal = selectedEntry && selectedEntry.ci != null
+      ? selectedEntry.ci
+      : (selectedDrug && CI_INDEX[selectedDrug] ? CI_INDEX[selectedDrug].ci_mean : null);
     label = 'Claim-Indication'; color = '#0072B2';
+    dataNote = vals.length ? `${selectedYear}` : 'all NDAs';
   } else if (measure === 'cu') {
-    vals = DATA.drugs.map(d => d.claim_uc).filter(v => v != null);
-    selectedVal = drug ? drug.claim_uc : null;
+    vals = Object.keys(DATA.timelines || {})
+      .map(nda => getExactTimelineEntry(nda, selectedYear))
+      .map(entry => entry && entry.cu != null ? entry.cu : null)
+      .filter(v => v != null);
+    if (vals.length === 0) vals = DATA.drugs.map(d => d.claim_uc).filter(v => v != null);
+    selectedVal = selectedEntry && selectedEntry.cu != null ? selectedEntry.cu : (drug ? drug.claim_uc : null);
     label = 'Claim-UC'; color = '#D55E00';
+    dataNote = vals.length ? `${selectedYear}` : 'all NDAs';
   } else if (measure === 'iu') {
-    vals = DATA.drugs.map(d => d.ind_uc).filter(v => v != null);
-    selectedVal = drug ? drug.ind_uc : null;
+    vals = Object.keys(DATA.timelines || {})
+      .map(nda => getExactTimelineEntry(nda, selectedYear))
+      .map(entry => entry && entry.iu != null ? entry.iu : null)
+      .filter(v => v != null);
+    if (vals.length === 0) vals = DATA.drugs.map(d => d.ind_uc).filter(v => v != null);
+    selectedVal = selectedEntry && selectedEntry.iu != null ? selectedEntry.iu : (drug ? drug.ind_uc : null);
     label = 'Indication-UC'; color = '#009E73';
+    dataNote = vals.length ? `${selectedYear}` : 'all NDAs';
   } else if (measure === 'gap') {
-    vals = DATA.drugs.map(d => d.trap_score).filter(v => v != null);
-    selectedVal = drug ? drug.trap_score : null;
+    vals = Object.keys(DATA.timelines || {})
+      .map(nda => getExactTimelineEntry(nda, selectedYear))
+      .map(entry => entry && entry.ts != null ? entry.ts : null)
+      .filter(v => v != null);
+    if (vals.length === 0) vals = DATA.drugs.map(d => d.trap_score).filter(v => v != null);
+    selectedVal = selectedEntry && selectedEntry.ts != null ? selectedEntry.ts : (drug ? drug.trap_score : null);
     label = 'Scope Gap'; color = '#CC79A7';
+    dataNote = vals.length ? `${selectedYear}` : 'all NDAs';
   }
 
   if (vals.length === 0) { ctx.fillStyle = '#999'; ctx.font = '13px Arial'; ctx.textAlign = 'center'; ctx.fillText('No data', w/2, h/2); return; }
@@ -3241,7 +3322,7 @@ function drawCIDistribution() {
   ctx.textAlign = 'right';
   ctx.fillText(String(maxCount), pad.left - 4, pad.top + 8);
   ctx.font = '10px Arial'; ctx.textAlign = 'left';
-  ctx.fillText(`${label} | ${vals.length} NDAs`, pad.left, pad.top - 3);
+  ctx.fillText(`${label} | ${vals.length} NDAs | ${dataNote}`, pad.left, pad.top - 3);
 }
 
 // ======================================================================
@@ -3274,16 +3355,28 @@ function renderCompareTable() {
     const ci = CI_INDEX[d.nda] || {};
     const ts = d.trap_score;
     html += `<tr style="border-bottom:1px solid #f0f0f0;">
-      <td style="padding:4px;cursor:pointer;color:#0072B2;" onclick="selectDrug('${d.nda}')">${d.name}</td>
+      <td style="padding:4px;cursor:pointer;color:#0072B2;" data-select-nda="${d.nda}">${d.name}</td>
       <td style="text-align:center;">${ci.ci_mean != null ? ci.ci_mean.toFixed(3) : '-'}</td>
       <td style="text-align:center;">${ci.orphan_rate != null ? (ci.orphan_rate * 100).toFixed(0) + '%' : '-'}</td>
       <td style="text-align:center;">${ts != null ? (ts >= 0 ? '+' : '') + ts.toFixed(3) : '-'}</td>
       <td style="text-align:center;">${d.n_use_codes || '-'}</td>
-      <td style="text-align:center;cursor:pointer;color:#D55E00;" onclick="compareList.splice(${i},1);renderCompareTable();">x</td>
+      <td style="text-align:center;cursor:pointer;color:#D55E00;" data-remove-compare="${i}">x</td>
     </tr>`;
   });
   html += '</tbody></table>';
   div.innerHTML = html;
+  div.querySelectorAll('[data-select-nda]').forEach(cell => {
+    cell.addEventListener('click', () => selectDrug(cell.dataset.selectNda));
+  });
+  div.querySelectorAll('[data-remove-compare]').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const idx = parseInt(cell.dataset.removeCompare, 10);
+      if (Number.isInteger(idx)) {
+        compareList.splice(idx, 1);
+        renderCompareTable();
+      }
+    });
+  });
 }
 
 // Touch-friendly help icons (#13)
