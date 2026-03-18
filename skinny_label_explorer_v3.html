@@ -1868,7 +1868,7 @@ async function _doRender(nda, year, gen) {
 
   if (!net) {
     const svg = d3.select('#network-svg');
-    svg.selectAll('*').remove();
+    svg.selectAll('*').remove(); svg.on('.', null);
     const rect = svg.node().getBoundingClientRect();
     svg.attr('viewBox', `0 0 ${rect.width} 400`);
     const inIndex = networkIndex && networkIndex[nda];
@@ -1901,7 +1901,7 @@ async function _doRender(nda, year, gen) {
 // ======================================================================
 function renderSimpleNetwork(nda, year) {
   const svg = d3.select('#network-svg');
-  svg.selectAll('*').remove();
+  svg.selectAll('*').remove(); svg.on('.', null);
   document.getElementById('pat-legend').innerHTML = '';
   const rect = svg.node().getBoundingClientRect();
   const w = rect.width, h = 520;
@@ -2018,7 +2018,7 @@ function renderSimpleNetwork(nda, year) {
 // ======================================================================
 function renderGATNetwork(nda, year, net, isHeavy) {
   const svg = d3.select('#network-svg');
-  svg.selectAll('*').remove();
+  svg.selectAll('*').remove(); svg.on('.', null);
   const rect = svg.node().getBoundingClientRect();
   const w = rect.width;
   const tl = DATA.timelines[nda];
@@ -2448,7 +2448,7 @@ function renderGATNetwork(nda, year, net, isHeavy) {
 // ======================================================================
 function renderSankey(nda, year, net, isHeavy) {
   const svg = d3.select('#network-svg');
-  svg.selectAll('*').remove();
+  svg.selectAll('*').remove(); svg.on('.', null);
   document.getElementById('pat-legend').innerHTML = '';
   const rect = svg.node().getBoundingClientRect();
   const w = rect.width;
@@ -2688,7 +2688,7 @@ function renderSankey(nda, year, net, isHeavy) {
 // ======================================================================
 function renderHeatmap(nda, year, net) {
   const svg = d3.select('#network-svg');
-  svg.selectAll('*').remove();
+  svg.selectAll('*').remove(); svg.on('.', null);
   const tl = DATA.timelines[nda];
   const drug = DATA.drugs.find(d => d.nda === nda);
   const drugName = drug ? drug.name : nda;
