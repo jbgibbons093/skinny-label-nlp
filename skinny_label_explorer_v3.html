@@ -139,10 +139,10 @@
   .help-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
     border-radius: 50%; background: #e0e5ec; color: var(--gray); font-size: 10px; font-weight: 700;
     cursor: help; margin-left: 6px; vertical-align: middle; position: relative; }
-  .help-icon:hover .help-tip { display: block; }
+  .help-icon:hover .help-tip, .help-icon.touched .help-tip { display: block; }
   .help-tip { display: none; position: absolute; top: 22px; left: -120px; width: 300px; background: rgba(0,0,0,0.92);
     color: #eee; padding: 12px 14px; border-radius: 8px; font-size: 12px; font-weight: 400; line-height: 1.5;
-    z-index: 200; text-transform: none; letter-spacing: 0; pointer-events: none; }
+    z-index: 200; text-transform: none; letter-spacing: 0; }
   /* Heatmap */
   #heatmap-canvas { width: 100%; border-radius: 6px; cursor: crosshair; }
   .heatmap-container { max-height: 900px; overflow: auto; }
@@ -158,7 +158,8 @@
     .main { grid-template-columns: 1fr; }
     .panels, .directory-controls, .detail-grid, .arch-grid, .info-grid { grid-template-columns: 1fr; }
     .view-toggle button:not(#view-simple) { display: none; }
-    #heatmap-mode-pills { display: none !important; }
+    #heatmap-mode-select { display: none !important; }
+    #heatmap-mode-field { display: none !important; }
     .network-container { max-height: 400px; }
     .heatmap-container { display: none !important; }
   }
@@ -236,15 +237,15 @@
     <div class="tab-panel active" id="panel-explorer">
     <div class="card">
       <h3>Selected Drug Overview</h3>
-      <div class="detail-grid" style="grid-template-columns:repeat(6,1fr);">
+      <div class="detail-grid" style="grid-template-columns:repeat(3,1fr);">
         <div class="detail-stat">
           <div class="label">Drug</div>
           <div class="value" id="d-name">Select a drug</div>
           <div class="sub" id="d-ingredient">-</div>
         </div>
-        <div class="detail-stat">
-          <div class="label">Claim-Indication <span class="help-icon">?<span class="help-tip">How closely do this drug's patent claims match its approved indications? Higher = claims cover what the drug is approved for. Lower = claims cover territory outside the label. Mean across all drugs: 0.918.</span></span></div>
-          <div class="value" id="d-ci">-</div>
+        <div class="detail-stat" style="border-left:4px solid #0072B2;background:linear-gradient(180deg,#f0f7ff,#e8f1fb);">
+          <div class="label">Claim-Indication (Primary) <span class="help-icon">?<span class="help-tip">How closely do this drug's patent claims match its approved indications? Higher = claims cover what the drug is approved for. Lower = claims cover territory outside the label. Mean across all drugs: 0.918.</span></span></div>
+          <div class="value" id="d-ci" style="font-size:24px;">-</div>
           <div class="sub" id="d-ci-sub">-</div>
         </div>
         <div class="detail-stat">
@@ -269,9 +270,24 @@
         </div>
       </div>
     </div>
+    <div class="panels">
+      <div class="card">
+        <h3>Label Indication Text <span class="help-icon">?<span class="help-tip">The actual "Indications and Usage" text from this drug's FDA-approved label, sorted chronologically. This is what claim-indication similarity is computed against.</span></span></h3>
+        <div id="indication-panel" style="max-height:160px;overflow-y:auto;font-size:12px;color:#555;line-height:1.6;">
+          <em>Select a drug to see its label indication text.</em>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Weakest Claim-Indication Matches <span class="help-icon">?<span class="help-tip">Claims sorted by lowest indication alignment. Claims below 0.88 cover semantic territory not well-represented in the approved label. These are the most policy-relevant findings.</span></span></h3>
+        <div id="orphan-panel" style="max-height:160px;overflow-y:auto;font-size:12px;color:#555;line-height:1.6;">
+          <em>Select a drug to see its weakest claim-indication matches.</em>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <h3>Drug Similarity Trajectory: <span id="drug-title">Select a drug</span>
-        <span class="help-icon">?<span class="help-tip">Year-by-year use-code relationships. Red = Claim-UC, Green = Ind-UC, Purple dashed = Scope Gap. The blue dashed horizontal line shows this drug's claim-indication mean.</span></span>
+        <span class="help-icon">?<span class="help-tip">Year-by-year use-code relationships. Red = Claim-UC, Green = Ind-UC, Purple = Scope Gap. The blue horizontal line shows this drug's claim-indication mean.</span></span>
       </h3>
       <canvas id="drug-chart"></canvas>
       <div class="legend">
@@ -382,20 +398,6 @@
       </div>
     </div>
 
-    <div class="panels">
-      <div class="card">
-        <h3>Label Indication Text <span class="help-icon">?<span class="help-tip">The actual "Indications and Usage" text from this drug's FDA-approved label. Each version corresponds to a label revision date. This is the text that claim-indication similarity is computed against.</span></span></h3>
-        <div id="indication-panel" style="max-height:200px;overflow-y:auto;font-size:12px;color:#555;line-height:1.6;">
-          <em>Select a drug to see its label indication text.</em>
-        </div>
-      </div>
-      <div class="card">
-        <h3>Orphan Claims <span class="help-icon">?<span class="help-tip">Claims that don't match any approved indication above the 0.88 cosine threshold. These cover semantic territory NOT in the drug's label — the most policy-relevant finding.</span></span></h3>
-        <div id="orphan-panel" style="max-height:200px;overflow-y:auto;font-size:12px;color:#555;line-height:1.6;">
-          <em>Select a drug to see its orphan claims (if any).</em>
-        </div>
-      </div>
-    </div>
 
     <div class="panels">
       <div class="card">
@@ -542,7 +544,7 @@
 
           <div class="card">
             <h3>Validation & Limitations</h3>
-            <p class="info-text"><strong>Validation.</strong> A 20-drug sample was tested for construct validity. The embedding model achieves an AUC of 0.704 at distinguishing matched from unmatched indication-UC pairs (proxy labels). Manual review of 349 pairs is pending for the definitive AUC. Per-drug ranking is perfect (AUC 1.000 within each drug).</p>
+            <p class="info-text"><strong>Validation.</strong> A 20-drug sample was tested for construct validity. The embedding model achieves a proxy AUC of 0.704 at distinguishing matched from unmatched indication-UC pairs. <strong style="color:#D55E00">Important caveat:</strong> the proxy labels are derived from median-split of the same cosine similarity being tested, making this measure partially circular. Manual review of 349 pairs is pending for a definitive, non-circular AUC. Per-drug ranking is perfect (AUC 1.000 within each drug), which is the stronger finding &mdash; the model correctly orders similarities within a drug's portfolio.</p>
             <p class="info-text" style="margin-top:8px"><strong>Limitations.</strong> Semantic similarity is not legal equivalence. Two texts can be semantically similar without one infringing the other, and vice versa. The compressed similarity range (0.82&ndash;1.0) limits the dynamic range of comparisons. 234 of 1,966 treatment NDAs lack scope gap data due to missing labels or parsing failures. This tool supports exploration and hypothesis generation, not definitive legal conclusions.</p>
           </div>
         </div>
@@ -1058,15 +1060,30 @@ function updateSelectedOverview(nda) {
   document.getElementById('d-name').textContent = `${drug.name} (${drug.nda})`;
   document.getElementById('d-ingredient').textContent = drug.ingredient || '-';
   document.getElementById('d-ci').textContent = ciMean != null ? ciMean.toFixed(3) : '-';
+  // Compute percentile rank
+  let pctile = '';
+  if (ciMean != null) {
+    const allCI = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
+    if (allCI.length > 0) {
+      const below = allCI.filter(v => v < ciMean).length;
+      pctile = ` | ${Math.round(100 * below / allCI.length)}th percentile`;
+    }
+  }
   document.getElementById('d-ci-sub').textContent = ciMean != null
-    ? (ciMean >= 0.92 ? 'Strong alignment' : ciMean >= 0.88 ? 'Moderate' : 'Weak')
+    ? (ciMean >= 0.92 ? 'Strong' : ciMean >= 0.88 ? 'Moderate' : 'Weak') + pctile
     : '-';
   const el_cu = document.getElementById('d-cu');
   const el_iu = document.getElementById('d-iu');
   if (el_cu) el_cu.textContent = drug.claim_uc != null ? drug.claim_uc.toFixed(3) : '-';
   if (el_iu) el_iu.textContent = drug.ind_uc != null ? drug.ind_uc.toFixed(3) : '-';
   document.getElementById('d-gap').textContent = formatGap(drug.trap_score);
-  document.getElementById('d-gap-sub').textContent = `Latest year ${drug.ob_year ?? 'N/A'}`;
+  let gapPctile = '';
+  if (drug.trap_score != null) {
+    const allGap = DATA.drugs.map(d => d.trap_score).filter(v => v != null);
+    const belowGap = allGap.filter(v => v < drug.trap_score).length;
+    gapPctile = ` | ${Math.round(100 * belowGap / allGap.length)}th pctile`;
+  }
+  document.getElementById('d-gap-sub').textContent = `Year ${drug.ob_year ?? 'N/A'}${gapPctile}`;
   document.getElementById('d-ucs').textContent = drug.n_use_codes != null ? `${drug.n_use_codes} UCs` : '-';
   document.getElementById('d-claims').textContent = totalClaims != null ? `${totalClaims} claims` : '-';
 }
@@ -3200,6 +3217,15 @@ function renderCompareTable() {
   div.innerHTML = html;
 }
 
+// Touch-friendly help icons (#13)
+document.addEventListener('click', e => {
+  const icon = e.target.closest('.help-icon');
+  document.querySelectorAll('.help-icon.touched').forEach(el => {
+    if (el !== icon) el.classList.remove('touched');
+  });
+  if (icon) { icon.classList.toggle('touched'); e.preventDefault(); }
+});
+
 document.getElementById('btn-copy-link').addEventListener('click', () => {
   updateURL();
   navigator.clipboard.writeText(window.location.href).then(() => {
@@ -3210,5 +3236,12 @@ document.getElementById('btn-copy-link').addEventListener('click', () => {
 });
 
 </script>
+
+<div style="text-align:center;padding:20px 32px;color:#8a96a3;font-size:11px;line-height:1.6;border-top:1px solid #e6ebf0;margin-top:16px;">
+  Gibbons &amp; Tu, 2026. Program On Regulation, Therapeutics, And Law (PORTAL), Division of Pharmacoepidemiology and Pharmacoeconomics, Brigham and Women's Hospital / Harvard Medical School &amp; West Virginia University College of Law.<br>
+  Embedding model: S-PubMedBert-MS-MARCO (768-dim). Data: FDA Orange Book 1988&ndash;2024, Drugs@FDA labels, USPTO patent claims.<br>
+  This tool supports exploration and hypothesis generation. Semantic similarity is not legal equivalence. Validation is pending.
+</div>
+
 </body>
 </html>
