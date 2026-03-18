@@ -157,19 +157,24 @@
   @media (max-width: 900px) {
     .main { grid-template-columns: 1fr; }
     .panels, .directory-controls, .detail-grid, .arch-grid, .info-grid { grid-template-columns: 1fr; }
-    .view-toggle button:not(#view-simple) { display: none; }
-    #heatmap-mode-select { display: none !important; }
-    #heatmap-mode-field { display: none !important; }
     .network-container { max-height: 400px; }
-    .heatmap-container { display: none !important; }
+    .heatmap-container { max-height: 500px; }
+    .tabbar { overflow-x: auto; flex-wrap: nowrap; }
+    .tabbar button { white-space: nowrap; font-size: 11px; padding: 6px 10px; }
+    .view-toggle button { font-size: 11px; padding: 4px 8px; }
+    .detail-grid { grid-template-columns: 1fr 1fr !important; }
+    .filter-bar { flex-direction: column; align-items: stretch; }
   }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <h1>Skinny Label Patent Network Explorer</h1>
-  <p>How closely do drug patents align with their approved uses? Semantic analysis of 53,000 patent claims across 1,966 FDA-approved drugs (1988-2024)</p>
+<div class="header" style="display:flex;align-items:center;gap:20px;">
+  <img src="portal-logo.png" alt="PORTAL" style="height:50px;flex-shrink:0;">
+  <div>
+    <h1>Skinny Label Patent Claim Explorer</h1>
+    <p>How closely do drug patents align with their approved uses? Semantic analysis of independent method-of-use patent claims across FDA-approved drugs (1988-2024)</p>
+  </div>
 </div>
 
 <div class="main">
@@ -179,7 +184,7 @@
       <div class="stat-grid">
         <div class="stat"><div class="value" id="s-ndas">-</div><div class="label">Treatment NDAs</div></div>
         <div class="stat"><div class="value" id="s-years">-</div><div class="label">Years</div></div>
-        <div class="stat"><div class="value" id="s-trap">-</div><div class="label">Mean Claim-Ind</div></div>
+        <div class="stat"><div class="value" id="s-trap">-</div><div class="label" id="s-trap-label">Mean Claim-Ind</div></div>
         <div class="stat"><div class="value" id="s-control">-</div><div class="label">Control NDAs</div></div>
       </div>
     </div>
@@ -244,7 +249,7 @@
           <div class="sub" id="d-ingredient">-</div>
         </div>
         <div class="detail-stat" style="border-left:4px solid #0072B2;background:linear-gradient(180deg,#f0f7ff,#e8f1fb);">
-          <div class="label">Claim-Indication (Primary) <span class="help-icon">?<span class="help-tip">How closely do this drug's patent claims match its approved indications? Higher = claims cover what the drug is approved for. Lower = claims cover territory outside the label. Mean across all drugs: 0.918.</span></span></div>
+          <div class="label">Claim-Indication (Primary) <span class="help-icon">?<span class="help-tip">How closely do this drug's patent claims match its approved indications? Higher = claims cover what the drug is approved for. Lower = claims cover territory outside the label. Computed across NDAs with CI data in the network index.</span></span></div>
           <div class="value" id="d-ci" style="font-size:24px;">-</div>
           <div class="sub" id="d-ci-sub">-</div>
         </div>
@@ -271,18 +276,18 @@
       </div>
     </div>
     <div class="panels">
-      <div class="card">
-        <h3>Label Indication Text <span class="help-icon">?<span class="help-tip">The actual "Indications and Usage" text from this drug's FDA-approved label, sorted chronologically. This is what claim-indication similarity is computed against.</span></span></h3>
-        <div id="indication-panel" style="max-height:160px;overflow-y:auto;font-size:12px;color:#555;line-height:1.6;">
+      <details class="card" style="cursor:pointer;">
+        <summary><h3 style="display:inline;">Label Indication Text <span class="help-icon">?<span class="help-tip">The "Indications and Usage" text from this drug's FDA-approved label, sorted chronologically. This is what claim-indication similarity is computed against.</span></span></h3></summary>
+        <div id="indication-panel" style="max-height:200px;overflow-y:auto;font-size:12px;color:#555;line-height:1.6;margin-top:8px;">
           <em>Select a drug to see its label indication text.</em>
         </div>
-      </div>
-      <div class="card">
-        <h3>Weakest Claim-Indication Matches <span class="help-icon">?<span class="help-tip">Claims sorted by lowest indication alignment. Claims below 0.88 cover semantic territory not well-represented in the approved label. These are the most policy-relevant findings.</span></span></h3>
-        <div id="orphan-panel" style="max-height:160px;overflow-y:auto;font-size:12px;color:#555;line-height:1.6;">
+      </details>
+      <details class="card" open style="cursor:pointer;">
+        <summary><h3 style="display:inline;">Weakest Claim-Indication Matches <span class="help-icon">?<span class="help-tip">Claims sorted by lowest indication alignment. Claims below 0.88 cover semantic territory not well-represented in the approved label.</span></span></h3></summary>
+        <div id="orphan-panel" style="max-height:200px;overflow-y:auto;font-size:12px;color:#555;line-height:1.6;margin-top:8px;">
           <em>Select a drug to see its weakest claim-indication matches.</em>
         </div>
-      </div>
+      </details>
     </div>
 
     <div class="card">
@@ -566,8 +571,8 @@
         <div class="stack">
           <div class="card">
             <h3>Reading the Results</h3>
-            <p class="info-text"><strong>Claim-Indication (primary).</strong> Mean across all drugs: 0.918. This is high &mdash; most patent claims do semantically align with approved indications. Only 4.1% of claims are "orphan" (CI below 0.88). The policy-relevant finding is not the average but the tails: which specific drugs and claims show weak alignment?</p>
-            <p class="info-text" style="margin-top:8px"><strong>Scope Gap (secondary).</strong> Mean: 0.010. Near zero on average, meaning patent claims and label indications cover use codes roughly equally. No structural break was detected at either GSK v. Teva (2021, p=0.924) or Amarin v. Hikma (2024, p=0.901). The legal landmarks did not measurably change the semantic relationship between patents and labels.</p>
+            <p class="info-text"><strong>Claim-Indication (primary).</strong> The mean CI across indexed NDAs is high &mdash; most patent claims do semantically align with approved indications. The finding is not the average but the tails: which specific drugs and claims show weak alignment? Check the distribution chart and weakest-matches panel for each drug.</p>
+            <p class="info-text" style="margin-top:8px"><strong>Scope Gap (secondary).</strong> Near zero on average, meaning patent claims and label indications cover use codes roughly equally. No structural break was detected at either GSK v. Teva (2021, p=0.924) or Amarin v. Hikma (2024, p=0.901). The legal landmarks did not measurably change the semantic relationship between patents and labels.</p>
             <p class="info-text" style="margin-top:8px"><strong>Vascepa.</strong> Scope gap is negative (-0.024), meaning the label actually covers use codes better than the patent claims do. This complicates the narrative that Vascepa is a poster child for the skinny label trap &mdash; semantically, the label is well-aligned. The legal problem was about specific claim construction and doctrine of equivalents, not broad semantic mismatch.</p>
           </div>
           <div class="card">
@@ -1217,6 +1222,7 @@ function init() {
   const ciValues = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
   const meanCi = ciValues.length ? ciValues.reduce((a, b) => a + b, 0) / ciValues.length : null;
   document.getElementById('s-trap').textContent = meanCi != null ? meanCi.toFixed(3) : '-';
+  document.getElementById('s-trap-label').textContent = `Mean CI (${ciValues.length.toLocaleString()} NDAs)`;
   document.getElementById('s-control').textContent = DATA.stats.n_control.toLocaleString();
 
   // Drug list
@@ -3206,7 +3212,7 @@ document.getElementById('btn-compare').addEventListener('click', () => {
   const q = input.value.trim().toLowerCase();
   if (!q) return;
   const match = DATA.drugs.find(d =>
-    d.nda === q || d.name.toLowerCase().includes(q) || d.ingredient.toLowerCase().includes(q)
+    d.nda === q || (d.name || '').toLowerCase().includes(q) || (d.ingredient || '').toLowerCase().includes(q)
   );
   if (!match) { input.value = 'Not found'; return; }
   if (compareList.some(c => c.nda === match.nda)) { input.value = ''; return; }
