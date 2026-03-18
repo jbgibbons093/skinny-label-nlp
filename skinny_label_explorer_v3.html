@@ -264,7 +264,7 @@
           <div class="sub">Latest year</div>
         </div>
         <div class="detail-stat">
-          <div class="label">Scope Gap <span class="help-icon">?<span class="help-tip">Claim-UC minus Indication-UC. Positive = patent claims semantically exceed what the label covers for use codes. Negative = label covers use codes better than claims. Near zero on average (0.010).</span></span></div>
+          <div class="label">Scope Gap <span class="help-icon">?<span class="help-tip">Claim-UC minus Indication-UC. Positive = patent claims semantically exceed what the label covers for use codes. Negative = label covers use codes better than claims. Near zero on average across all treatment NDAs.</span></span></div>
           <div class="value" id="d-gap">-</div>
           <div class="sub" id="d-gap-sub">Claim-UC minus Ind-UC</div>
         </div>
@@ -312,7 +312,7 @@
           <option value="iu">Indication-UC</option>
           <option value="gap">Scope Gap</option>
         </select>
-        <span class="help-icon">?<span class="help-tip">Distribution of the selected measure across all NDAs. The dashed vertical line marks 0.88 (the similarity threshold). The red marker shows where the currently selected drug falls. Switch the dropdown to compare distributions across different similarity pairs.</span></span>
+        <span class="help-icon">?<span class="help-tip">Distribution of the selected measure across NDAs with data. For similarity measures, the dashed line marks 0.88. For Scope Gap, the dashed line marks zero (positive = claims exceed label). The red marker shows the currently selected drug. Switch the dropdown to compare across measures.</span></span>
       </h3>
       <canvas id="ci-dist-chart" style="width:100%;height:180px;"></canvas>
     </div>
@@ -1127,7 +1127,7 @@ function renderDirectory() {
   const complexity = document.getElementById('dir-complexity')?.value || 'all';
 
   let rows = DATA.drugs.filter(d => {
-    const text = `${d.name} ${d.nda} ${d.ingredient}`.toLowerCase();
+    const text = `${d.name} ${d.nda} ${d.ingredient || ''}`.toLowerCase();
     const networkMeta = getNetworkMeta(d.nda);
     const ciStats = getCIStats(d.nda);
     const ciMean = ciStats.ci_mean ?? null;
