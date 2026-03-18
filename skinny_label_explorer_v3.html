@@ -225,8 +225,10 @@
       </div>
 
       <div class="card">
-        <h3>Aggregate Year Snapshot</h3>
-        <div class="snapshot-meta" id="agg-snapshot-meta">Select a year from the charts or timeline.</div>
+        <h3>Aggregate Year Snapshot
+          <select id="agg-year-select" style="font-size:12px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;margin-left:8px;vertical-align:middle;"></select>
+        </h3>
+        <div class="snapshot-meta" id="agg-snapshot-meta">Select a year to see aggregate metrics.</div>
         <div class="snapshot-row">
           <div class="snapshot-pill"><span class="label">Claim-Ind</span><span class="value" id="agg-ci">-</span></div>
           <div class="snapshot-pill"><span class="label">Weak CI Rate</span><span class="value" id="agg-orphan">-</span></div>
@@ -1111,9 +1113,18 @@ function updateSelectedOverview(nda) {
   document.getElementById('d-claims').textContent = totalClaims != null ? `${totalClaims} claims` : '-';
 }
 
+function populateAggYearSelect() {
+  const sel = document.getElementById('agg-year-select');
+  if (!sel || !DATA || !DATA.yearly) return;
+  sel.innerHTML = DATA.yearly.map(d => `<option value="${d.y}">${d.y}</option>`).join('');
+  sel.value = DATA.yearly[DATA.yearly.length - 1].y;
+  sel.addEventListener('change', updateSnapshotCards);
+}
+
 function updateSnapshotCards() {
-  const sliderYear = parseInt(document.getElementById('year-slider')?.value || '2024', 10);
-  const agg = getClosestAggregateYear(sliderYear);
+  const selYear = document.getElementById('agg-year-select');
+  const yr = selYear ? parseInt(selYear.value) : parseInt(document.getElementById('year-slider')?.value || '2024', 10);
+  const agg = getClosestAggregateYear(yr);
   const ciValues = Object.values(CI_INDEX).map(v => v.ci_mean).filter(v => v != null);
   const orphanValues = Object.values(CI_INDEX).map(v => v.orphan_rate).filter(v => v != null);
   const aggCiMean = ciValues.length ? ciValues.reduce((a, b) => a + b, 0) / ciValues.length : null;
@@ -1312,6 +1323,7 @@ function init() {
   setupTabs();
   setupDirectoryControls();
   populateDirectoryFamilies();
+  populateAggYearSelect();
 
   // Log network index availability
   console.log('Network index:', networkIndex ? Object.keys(networkIndex).length + ' NDAs available for lazy loading' : 'NOT LOADED');
